@@ -1,0 +1,30 @@
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Personal interview prep, not project deliverable
+INTERVIEW_PREP.md
+
+# Assignment source doc (transcribed into CLAUDE.md / docs/, not needed in history)
+Tech Assignment.docx
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Go build output
+/bin/
+*.exe
+*.test
+*.out
+
+# Frontend (once it exists)
+node_modules/
+dist/
+build/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
