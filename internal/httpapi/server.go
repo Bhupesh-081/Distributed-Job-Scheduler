@@ -24,7 +24,7 @@ func NewServer(st *store.Store, tokens authsvc.TokenIssuer, refreshTokenTTL time
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logRequests(s.mux).ServeHTTP(w, r)
+	logRequests(corsMiddleware(s.mux)).ServeHTTP(w, r)
 }
 
 func (s *Server) routes() {
