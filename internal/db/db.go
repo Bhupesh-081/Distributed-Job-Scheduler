@@ -12,6 +12,9 @@ import (
 //go:embed migrations/0001_init.sql
 var initSQL string
 
+//go:embed migrations/0002_jobs.sql
+var jobsSQL string
+
 func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
@@ -27,13 +30,14 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // Migrate applies the schema. Every statement is idempotent (CREATE ... IF
 // NOT EXISTS), so this is safe to run on every startup.
 //
-// ponytail: single flat migration file, no versioning table. Fine while
-// there's one schema revision; move to numbered up/down files (or
-// golang-migrate) the moment an existing table needs to change shape.
+// ponytail: numbered flat files, no versioning table, applied in full every
+// startup. Fine while each file only adds new tables; move to golang-migrate
+// (up/down pairs) the moment an existing table needs to change shape.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, initSQL)
-	if err != nil {
-		return fmt.Errorf("migrate: %w", err)
+	for _, stmt := range []string{initSQL, jobsSQL} {
+		if _, err := pool.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("migrate: %w", err)
+		}
 	}
 	return nil
 }

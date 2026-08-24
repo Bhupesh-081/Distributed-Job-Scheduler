@@ -8,7 +8,15 @@ INTERVIEW_PREP.md
 # Assignment source doc (transcribed into CLAUDE.md / docs/, not needed in history)
 Tech Assignment.docx
 
+# Eraser diagram/doc exports (reference only, transcribed into docs/, not needed in history)
+diagram-export-*.png
+document-export-*.md
+
+# Scratch list of commands to run manually per build-workflow layer/checkpoint
+command.md
+
 # Secrets
+
 .env
 .env.*
 !.env.example

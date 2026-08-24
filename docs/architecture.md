@@ -1,13 +1,27 @@
 # System Architecture
 
+## Non-functional requirements
+
+| Requirement | Target |
+|---|---|
+| Throughput | 10K jobs/sec |
+| CAP tradeoff | Availability over consistency |
+| Delivery guarantee | At-least-once — every job runs at least once |
+| Scheduling latency | A job starts within 2s of its scheduled/due time |
+
+These drive the topology below: Kafka over a DB-polling-only queue (throughput,
+push delivery), the Watcher Service's short poll interval (latency SLA), and
+the atomic-claim + idempotency design (at-least-once delivery must not become
+duplicate execution).
+
 ## Stack
 
 | Layer | Choice |
 |---|---|
 | Backend | Go |
 | Primary datastore | PostgreSQL |
-| Cache / heartbeats / locks | Redis |
-| Message broker | RabbitMQ |
+| Cache / heartbeats / locks / polling watermark | Redis |
+| Message broker | Kafka |
 | Frontend | React + Vite |
 
 Rationale for these choices lives in [design-decisions.md](./design-decisions.md).
