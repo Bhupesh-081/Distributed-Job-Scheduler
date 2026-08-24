@@ -1,10 +1,74 @@
-// Command job-service will expose the REST API for creating and managing
-// jobs (see docs/architecture.md). Not yet implemented — Layer 3 of the MVP
-// build workflow.
+// Command job-service exposes the REST API for creating and listing jobs
+// (see docs/architecture.md). Unauthenticated MVP — see "Auth on
+// job-service routes" in docs/design-decisions.md's MVP bootstrap ledger.
 package main
 
-import "log/slog"
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"distributed-job-scheduler/internal/db"
+	"distributed-job-scheduler/internal/httpapi"
+	"distributed-job-scheduler/internal/store"
+)
 
 func main() {
-	slog.Info("job-service: not yet implemented")
+	if err := run(); err != nil {
+		slog.Error("fatal", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	port := getenv("PORT", "8081")
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		return fmt.Errorf("DATABASE_URL is required")
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	if err := db.Migrate(ctx, pool); err != nil {
+		return err
+	}
+
+	server := httpapi.NewJobServer(store.New(pool))
+	httpServer := &http.Server{
+		Addr:              ":" + port,
+		Handler:           server,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(shutdownCtx)
+	}()
+
+	slog.Info("job-service listening", "port", port)
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
