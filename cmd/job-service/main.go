@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"distributed-job-scheduler/internal/db"
 	"distributed-job-scheduler/internal/httpapi"
 	"distributed-job-scheduler/internal/store"
@@ -45,7 +47,10 @@ func run() error {
 		return err
 	}
 
-	server := httpapi.NewJobServer(store.New(pool))
+	rdb := redis.NewClient(&redis.Options{Addr: getenv("REDIS_ADDR", "localhost:6379")})
+	defer rdb.Close()
+
+	server := httpapi.NewJobServer(store.New(pool), rdb)
 	httpServer := &http.Server{
 		Addr:              ":" + port,
 		Handler:           server,

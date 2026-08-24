@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"distributed-job-scheduler/internal/cancel"
 	"distributed-job-scheduler/internal/store"
 )
 
@@ -181,6 +182,48 @@ func (s *JobServer) handleListJobs(w http.ResponseWriter, r *http.Request) {
 		out[i] = toJobResponse(j)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handleCancelJob cancels a queued job outright, or, if it's already been
+// claimed and is running, requests cancellation via the Redis cancel flag
+// that consumer-service polls (see internal/cancel).
+func (s *JobServer) handleCancelJob(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathUUID(w, r, "id")
+	if !ok {
+		return
+	}
+	job, err := s.store.GetJob(r.Context(), id)
+	if err != nil {
+		if err == store.ErrNotFound {
+			notFound(w, "job not found")
+			return
+		}
+		internalError(w, err)
+		return
+	}
+	switch job.Status {
+	case "success", "failed", "dead", "cancelled":
+		conflict(w, "job already finished")
+		return
+	}
+
+	cancelled, err := s.store.CancelQueuedJob(r.Context(), id)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	if cancelled {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "cancelled"})
+		return
+	}
+
+	// Already claimed/running: signal via Redis, consumer-service polls and
+	// aborts the in-flight execution.
+	if err := cancel.Request(r.Context(), s.redis, id); err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "cancellation_requested"})
 }
 
 func (s *JobServer) handleGetJob(w http.ResponseWriter, r *http.Request) {

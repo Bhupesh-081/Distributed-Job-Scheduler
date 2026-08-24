@@ -18,6 +18,9 @@ var jobsSQL string
 //go:embed migrations/0003_jobs_type_status_fix.sql
 var jobsTypeStatusFixSQL string
 
+//go:embed migrations/0004_jobs_dispatch.sql
+var jobsDispatchSQL string
+
 func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
@@ -37,7 +40,7 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // startup. Fine while each file only adds new tables; move to golang-migrate
 // (up/down pairs) the moment an existing table needs to change shape.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	for _, stmt := range []string{initSQL, jobsSQL, jobsTypeStatusFixSQL} {
+	for _, stmt := range []string{initSQL, jobsSQL, jobsTypeStatusFixSQL, jobsDispatchSQL} {
 		if _, err := pool.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("migrate: %w", err)
 		}
