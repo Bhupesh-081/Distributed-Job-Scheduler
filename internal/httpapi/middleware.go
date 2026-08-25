@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"distributed-job-scheduler/internal/authsvc"
 )
 
 type ctxKey int
@@ -21,6 +23,17 @@ func userIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 
 // requireAuth validates the Bearer JWT and injects the caller's user ID into the request context.
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return requireAuthWith(s.tokens, next)
+}
+
+// requireAuth is JobServer's counterpart to Server.requireAuth — job-service
+// is a separate binary/mux but shares the same JWT secret/issuer, so a
+// token from cmd/api's /auth/login works here too.
+func (s *JobServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return requireAuthWith(s.tokens, next)
+}
+
+func requireAuthWith(tokens authsvc.TokenIssuer, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		token, ok := strings.CutPrefix(header, "Bearer ")
@@ -28,7 +41,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			unauthorized(w, "missing bearer token")
 			return
 		}
-		userID, err := s.tokens.ParseAccessToken(token)
+		userID, err := tokens.ParseAccessToken(token)
 		if err != nil {
 			unauthorized(w, "invalid or expired token")
 			return

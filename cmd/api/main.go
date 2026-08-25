@@ -1,5 +1,7 @@
-// Command api runs the Distributed Job Scheduler REST API: auth and project
-// management for now (queues/jobs land once job execution is designed).
+// Command api runs the Distributed Job Scheduler REST API: auth,
+// organizations/projects, queues, retry policies, workers, and the dead
+// letter queue. Jobs themselves are served by the separate cmd/job-service
+// (see docs/architecture.md).
 package main
 
 import (
@@ -10,6 +12,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"distributed-job-scheduler/internal/authsvc"
 	"distributed-job-scheduler/internal/config"
@@ -44,9 +48,12 @@ func run() error {
 		return err
 	}
 
+	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
+	defer rdb.Close()
+
 	st := store.New(pool)
 	tokens := authsvc.NewTokenIssuer(cfg.JWTSecret, cfg.AccessTokenTTL)
-	server := httpapi.NewServer(st, tokens, cfg.RefreshTokenTTL)
+	server := httpapi.NewServer(st, tokens, cfg.RefreshTokenTTL, rdb)
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,

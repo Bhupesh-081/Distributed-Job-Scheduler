@@ -1,12 +1,14 @@
 # Distributed Job Scheduler
 
-Currently implemented: **auth + project management**. Queues/jobs/workers
-land once the job execution model is decided — see `docs/` for the full
-target architecture.
+Auth + project management, plus the full job-scheduling core: queues,
+retry policies, jobs, workers, execution logs, and a dead letter queue —
+see `docs/` for the full architecture and `docs/design-decisions.md`'s
+"MVP bootstrap ledger" for what's implemented and how it was verified.
 
 ## Run it
 
-Full stack, HTTPS included (Postgres + API + Caddy reverse proxy):
+Full stack, HTTPS included (Postgres + Redis + Kafka + api + job-service +
+watcher-service + consumer-service + Caddy reverse proxy):
 
 ```bash
 cp .env.example .env          # then edit JWT_SECRET (openssl rand -base64 32)
@@ -15,9 +17,12 @@ docker compose up -d --build
 
 Caddy listens on `:443` and terminates HTTPS — self-signed for local dev
 (`SITE_ADDRESS` defaults to `localhost`), a real Let's Encrypt cert
-automatically if you point `SITE_ADDRESS` at a real domain. The API
-container has no published port; only Caddy can reach it, exactly as it
-would sit behind a load balancer in production.
+automatically if you point `SITE_ADDRESS` at a real domain. `api` and
+`job-service` publish no ports; only Caddy can reach them (`/jobs*` routes
+to job-service, everything else to api — see `Caddyfile`), exactly as they
+would sit behind a load balancer in production. `watcher-service` and
+`consumer-service` have no HTTP surface at all — they just need Postgres/
+Redis/Kafka reachable, which compose wires up automatically.
 
 Bare-metal alternative, for iterating on the API without a container rebuild
 per change (plain HTTP, `localhost` only — fine for local dev, don't do this
@@ -42,6 +47,28 @@ TOKEN=$(curl -sk https://localhost/auth/login -d '{"email":"a@example.com","pass
 
 curl -sk https://localhost/organizations -H "Authorization: Bearer $TOKEN" -d '{"name":"Acme"}' | jq
 curl -sk https://localhost/organizations -H "Authorization: Bearer $TOKEN" | jq
+```
+
+Create a project, a queue, and a job (every project owns multiple queues;
+every job belongs to a queue — see `docs/api-design.md`):
+
+```bash
+ORG_ID=$(curl -sk https://localhost/organizations -H "Authorization: Bearer $TOKEN" -d '{"name":"Acme"}' | jq -r .id)
+PROJECT_ID=$(curl -sk https://localhost/organizations/$ORG_ID/projects -H "Authorization: Bearer $TOKEN" -d '{"name":"Backend"}' | jq -r .id)
+QUEUE_ID=$(curl -sk https://localhost/projects/$PROJECT_ID/queues -H "Authorization: Bearer $TOKEN" -d '{"name":"emails","concurrency_limit":5}' | jq -r .id)
+
+JOB_ID=$(curl -sk https://localhost/jobs -H "Authorization: Bearer $TOKEN" \
+  -d "{\"name\":\"say-hi\",\"scheduled_type\":\"immediate\",\"queue_id\":\"$QUEUE_ID\",\"payload\":{\"cmd\":\"echo\",\"args\":[\"hi\"]}}" | jq -r .id)
+
+curl -sk https://localhost/jobs/$JOB_ID -H "Authorization: Bearer $TOKEN" | jq          # watch status go queued -> success
+curl -sk https://localhost/jobs/$JOB_ID/logs -H "Authorization: Bearer $TOKEN" | jq      # claim/output/outcome per attempt
+```
+
+Or a recurring job — a `scheduled_jobs` definition (standard 5-field cron) that watcher-service expands into a fresh job on every firing, with no code of its own to run:
+
+```bash
+curl -sk https://localhost/queues/$QUEUE_ID/scheduled-jobs -H "Authorization: Bearer $TOKEN" \
+  -d '{"name":"every-5-min","cron_expression":"*/5 * * * *","payload":{"cmd":"echo","args":["tick"]}}' | jq
 ```
 
 Against the bare-metal API directly, swap `https://localhost` for

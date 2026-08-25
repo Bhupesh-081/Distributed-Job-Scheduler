@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -101,12 +102,20 @@ func TestJobRunLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	run, err := s.CreateJobRun(ctx, job.ID, 1)
+	worker, err := s.RegisterWorker(ctx, uuid.New(), "test-host", 1234, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	run, err := s.CreateJobRun(ctx, job.ID, 1, worker.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if run.Status != "running" || run.AttemptNumber != 1 {
 		t.Fatalf("unexpected run: %+v", run)
+	}
+	if run.WorkerID == nil || *run.WorkerID != worker.ID {
+		t.Fatalf("expected worker_id %s, got %v", worker.ID, run.WorkerID)
 	}
 
 	errMsg := "boom"

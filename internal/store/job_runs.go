@@ -18,38 +18,93 @@ type JobRun struct {
 	AttemptNumber int
 	ErrMsg        *string
 	CreatedAt     time.Time
+	WorkerID      *uuid.UUID
 }
 
 // ClaimJob atomically transitions a queued job to running. The WHERE
 // status='queued' guard is what makes duplicate Kafka delivery (or a
 // retried claim) safe: only the first caller sees a row come back.
+//
+// If the job belongs to a queue, the claim is also blocked while the queue
+// is paused or already at its concurrency_limit — the job stays 'queued'
+// with dispatched_at still set, so watcher-service's stuck-job recovery
+// picks it up again once a slot frees (see RecoverStuckJobs), no separate
+// backoff/retry path needed here.
 func (s *Store) ClaimJob(ctx context.Context, id uuid.UUID) (Job, bool, error) {
-	var j Job
-	err := s.pool.QueryRow(ctx,
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Job{}, false, err
+	}
+	defer tx.Rollback(ctx)
+
+	var queueID *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT queue_id FROM jobs WHERE id = $1 AND status = 'queued'`, id).Scan(&queueID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Job{}, false, nil
+		}
+		return Job{}, false, err
+	}
+
+	if queueID != nil {
+		// Serializes concurrent claims for this queue so the count check
+		// below can't race two claims past the limit at once. Advisory
+		// locks don't block other queues, so this doesn't become a
+		// global bottleneck.
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, queueID.String()); err != nil {
+			return Job{}, false, err
+		}
+		var paused bool
+		var limit, running int
+		err := tx.QueryRow(ctx,
+			`SELECT paused, concurrency_limit,
+			        (SELECT count(*) FROM jobs WHERE queue_id = $1 AND status = 'running')
+			 FROM queues WHERE id = $1`,
+			queueID,
+		).Scan(&paused, &limit, &running)
+		if err != nil {
+			return Job{}, false, err
+		}
+		if paused || running >= limit {
+			return Job{}, false, nil
+		}
+	}
+
+	j, err := scanJob(tx.QueryRow(ctx,
 		`UPDATE jobs SET status = 'running', modified_time = now()
 		 WHERE id = $1 AND status = 'queued'
-		 RETURNING id, name, scheduled_type, status, scheduled_time, cron_expression, payload, retries_count, retries_max, modified_time, created_at`,
+		 RETURNING `+jobCols,
 		id,
-	).Scan(&j.ID, &j.Name, &j.ScheduledType, &j.Status, &j.ScheduledTime, &j.CronExpression,
-		&j.Payload, &j.RetriesCount, &j.RetriesMax, &j.ModifiedTime, &j.CreatedAt)
+	))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Job{}, false, nil
 	}
 	if err != nil {
 		return Job{}, false, err
 	}
-	return j, true, nil
+	return j, true, tx.Commit(ctx)
 }
 
-func (s *Store) CreateJobRun(ctx context.Context, jobID uuid.UUID, attemptNumber int) (JobRun, error) {
+func (s *Store) CreateJobRun(ctx context.Context, jobID uuid.UUID, attemptNumber int, workerID uuid.UUID) (JobRun, error) {
 	var r JobRun
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO job_runs (job_id, status, start_time, attempt_number)
-		 VALUES ($1, 'running', now(), $2)
-		 RETURNING id, job_id, status, start_time, end_time, attempt_number, err_msg, created_at`,
-		jobID, attemptNumber,
-	).Scan(&r.ID, &r.JobID, &r.Status, &r.StartTime, &r.EndTime, &r.AttemptNumber, &r.ErrMsg, &r.CreatedAt)
+		`INSERT INTO job_runs (job_id, status, start_time, attempt_number, worker_id)
+		 VALUES ($1, 'running', now(), $2, $3)
+		 RETURNING id, job_id, status, start_time, end_time, attempt_number, err_msg, created_at, worker_id`,
+		jobID, attemptNumber, workerID,
+	).Scan(&r.ID, &r.JobID, &r.Status, &r.StartTime, &r.EndTime, &r.AttemptNumber, &r.ErrMsg, &r.CreatedAt, &r.WorkerID)
 	return r, err
+}
+
+// TouchRunningJob refreshes a running job's modified_time — called
+// periodically by consumer-service while a job is actively executing, so
+// RecoverStuckRunningJobs can tell "still being worked on" apart from "the
+// worker that claimed this is gone." Without a periodic touch, any job
+// whose payload legitimately runs longer than the stale threshold would
+// look identical to a crashed one and get wrongly re-executed out from
+// under its still-alive worker.
+func (s *Store) TouchRunningJob(ctx context.Context, id uuid.UUID) error {
+	_, err := s.pool.Exec(ctx, `UPDATE jobs SET modified_time = now() WHERE id = $1 AND status = 'running'`, id)
+	return err
 }
 
 func (s *Store) FinishJobRun(ctx context.Context, runID uuid.UUID, status string, errMsg *string) error {
@@ -87,8 +142,17 @@ func (s *Store) SetJobStatus(ctx context.Context, id uuid.UUID, status string) e
 // it run again) or dead-letters it (status='dead') if retries are
 // exhausted, in one atomic statement.
 func (s *Store) RetryOrDeadLetter(ctx context.Context, id uuid.UUID) (retriesCount, retriesMax int, dead bool, err error) {
+	return retryOrDeadLetter(ctx, s.pool, id)
+}
+
+// retryOrDeadLetter is the shared implementation behind RetryOrDeadLetter
+// (called directly against the pool by consumer-service after a genuine
+// execution failure) and RecoverStuckRunningJobs (called against a
+// transaction, since it's one step of a larger atomic recovery) — both
+// need the exact same queued-vs-dead decision, so it lives in one place.
+func retryOrDeadLetter(ctx context.Context, q querier, id uuid.UUID) (retriesCount, retriesMax int, dead bool, err error) {
 	var status string
-	err = s.pool.QueryRow(ctx,
+	err = q.QueryRow(ctx,
 		`UPDATE jobs SET
 		   retries_count = retries_count + 1,
 		   status = CASE WHEN retries_count + 1 > retries_max THEN 'dead' ELSE 'queued' END,

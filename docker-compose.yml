@@ -35,19 +35,77 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      # Single-broker dev cluster: the default replication factor of 3 for
+      # internal topics can never satisfy on 1 broker, which permanently
+      # breaks consumer group coordination (__consumer_offsets never
+      # auto-creates).
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
   api:
-    build: .
+    build:
+      context: .
+      args:
+        SERVICE: api
     environment:
       PORT: 8080
       DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      REDIS_ADDR: redis:6379
     depends_on:
       - postgres
+      - redis
     # No published port: only Caddy talks to this, over the compose network.
 
+  job-service:
+    build:
+      context: .
+      args:
+        SERVICE: job-service
+    environment:
+      PORT: 8081
+      DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - postgres
+      - redis
+    # No published port: only Caddy talks to this, over the compose network.
+
+  watcher-service:
+    build:
+      context: .
+      args:
+        SERVICE: watcher-service
+    environment:
+      DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
+      # kafka:19092 is the PLAINTEXT listener for in-network services, not
+      # the PLAINTEXT_HOST one bare-metal `go run` uses via localhost:9092.
+      KAFKA_BROKERS: kafka:19092
+      REDIS_ADDR: redis:6379
+    depends_on:
+      - postgres
+      - kafka
+      - redis
+
+  consumer-service:
+    build:
+      context: .
+      args:
+        SERVICE: consumer-service
+    environment:
+      DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:19092
+      CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+    depends_on:
+      - postgres
+      - redis
+      - kafka
+
   caddy:
-    image: caddy:2-alpine
+    image: docker.io/caddy:2-alpine
     ports:
       - "443:443"
       - "80:80" # HTTP->HTTPS redirect + ACME challenge, handled by Caddy automatically
@@ -58,6 +116,7 @@ services:
       - caddy_data:/data
     depends_on:
       - api
+      - job-service
 
 volumes:
   pgdata:

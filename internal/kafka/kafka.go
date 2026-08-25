@@ -63,6 +63,12 @@ func NewConsumer(brokers []string, topic, groupID string) *Consumer {
 		Brokers: brokers,
 		Topic:   topic,
 		GroupID: groupID,
+		// A consumer that joins its group before the topic exists (e.g.
+		// this service starting before the first job is ever published)
+		// gets assigned zero partitions and, without this, stays stuck
+		// there forever — kafka-go doesn't rejoin on its own when the
+		// topic shows up later. This makes it notice and rejoin.
+		WatchPartitionChanges: true,
 	})}
 }
 

@@ -27,15 +27,21 @@ import (
 	"distributed-job-scheduler/internal/store"
 )
 
-// ponytail: fixed 5s retry delay, no linear/exponential backoff yet —
-// retry_policies table is deferred (see docs/design-decisions.md MVP
-// ledger). Upgrade: read a strategy off the job/queue once that table
-// exists.
+// retryDelay is the fallback for a job with no retry policy resolvable
+// (unscoped job, or a queue with no default_retry_policy_id) — see
+// store.EffectiveRetryPolicy, which normally supplies the real delay.
 const retryDelay = 5 * time.Second
 
 // How often a running job's execution is checked against the Redis cancel
-// flag. Coarse on purpose — cancellation is best-effort, not a hard SLA.
+// flag, and its jobs.modified_time touched to prove this worker is still
+// alive (see TouchRunningJob). Coarse on purpose — cancellation is
+// best-effort, not a hard SLA — but well under watcher-service's 30s stale
+// threshold so a healthy job in a long payload never looks abandoned.
 const cancelPollInterval = 2 * time.Second
+
+// How often this worker records a liveness heartbeat. watcher-service reaps
+// workers whose last heartbeat goes stale (see its own threshold).
+const heartbeatInterval = 10 * time.Second
 
 func main() {
 	if err := run(); err != nil {
@@ -74,7 +80,13 @@ func run() error {
 	rdb := redis.NewClient(&redis.Options{Addr: getenv("REDIS_ADDR", "localhost:6379")})
 	defer rdb.Close()
 
-	w := &worker{store: st, producer: producer, redis: rdb, sem: make(chan struct{}, concurrency)}
+	hostname, _ := os.Hostname()
+	workerID := uuid.New()
+	if _, err := st.RegisterWorker(ctx, workerID, hostname, os.Getpid(), concurrency); err != nil {
+		return fmt.Errorf("register worker: %w", err)
+	}
+
+	w := &worker{id: workerID, store: st, producer: producer, redis: rdb, sem: make(chan struct{}, concurrency)}
 
 	var wg sync.WaitGroup
 	for _, topic := range []string{kafkapkg.TopicRun, kafkapkg.TopicRetry} {
@@ -90,8 +102,16 @@ func run() error {
 		}(topic)
 	}
 
-	slog.Info("consumer-service running", "concurrency", concurrency, "brokers", brokers)
+	wg.Go(func() { w.heartbeatLoop(ctx) })
+
+	slog.Info("consumer-service running", "worker_id", workerID, "concurrency", concurrency, "brokers", brokers)
 	wg.Wait()
+
+	stopCtx, cancelStop := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelStop()
+	if err := st.MarkWorkerStopped(stopCtx, workerID); err != nil {
+		slog.Error("mark worker stopped", "error", err)
+	}
 	slog.Info("consumer-service stopped")
 	return nil
 }
@@ -104,10 +124,29 @@ func getenv(key, fallback string) string {
 }
 
 type worker struct {
+	id       uuid.UUID
 	store    *store.Store
 	producer *kafkapkg.Producer
 	redis    *redis.Client
 	sem      chan struct{}
+	inFlight atomic.Int32
+}
+
+// heartbeatLoop records this worker's liveness + current in-flight job
+// count until ctx is cancelled.
+func (w *worker) heartbeatLoop(ctx context.Context) {
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := w.store.Heartbeat(context.Background(), w.id, int(w.inFlight.Load())); err != nil {
+				slog.Error("heartbeat", "worker_id", w.id, "error", err)
+			}
+		}
+	}
 }
 
 // consumeLoop fetches messages one at a time (kafka-go readers aren't safe
@@ -134,7 +173,9 @@ fetchLoop:
 
 		inFlight.Go(func() {
 			defer func() { <-w.sem }()
+			w.inFlight.Add(1)
 			w.handle(context.Background(), topic, jobID)
+			w.inFlight.Add(-1)
 			if err := consumer.Commit(context.Background(), msg); err != nil {
 				slog.Error("commit message", "topic", topic, "job_id", jobID, "error", err)
 			}
@@ -159,11 +200,12 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 		return
 	}
 
-	run, err := w.store.CreateJobRun(ctx, jobID, job.RetriesCount+1)
+	run, err := w.store.CreateJobRun(ctx, jobID, job.RetriesCount+1, w.id)
 	if err != nil {
 		log.Error("create job run", "error", err)
 		return
 	}
+	w.jobLog(ctx, log, jobID, &run.ID, "info", fmt.Sprintf("claimed by worker %s, attempt %d", w.id, run.AttemptNumber))
 
 	execCtx, stopExec := context.WithCancel(ctx)
 	defer stopExec()
@@ -178,6 +220,15 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 			case <-execCtx.Done():
 				return
 			case <-ticker.C:
+				// Refreshes jobs.modified_time so watcher-service's
+				// RecoverStuckRunningJobs knows this job is still being
+				// actively worked on, not abandoned by a dead worker —
+				// without this, any payload that legitimately runs longer
+				// than the stale threshold would get wrongly re-executed
+				// out from under this still-alive worker.
+				if err := w.store.TouchRunningJob(context.Background(), jobID); err != nil {
+					log.Error("touch running job", "error", err)
+				}
 				if requested, err := cancel.IsRequested(context.Background(), w.redis, jobID); err != nil {
 					log.Error("check cancel flag", "error", err)
 				} else if requested {
@@ -193,6 +244,9 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 	stopExec() // unblock the poller (execCtx.Done()) so cancelPollDone closes below
 	<-cancelPollDone
 	log.Info("job executed", "attempt", run.AttemptNumber, "success", runErr == nil, "output", output)
+	if output != "" {
+		w.jobLog(ctx, log, jobID, &run.ID, "info", "output: "+output)
+	}
 
 	if wasCancelled.Load() {
 		errMsg := "cancelled by user"
@@ -205,6 +259,7 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 		if err := cancel.Clear(ctx, w.redis, jobID); err != nil {
 			log.Error("clear cancel flag", "error", err)
 		}
+		w.jobLog(ctx, log, jobID, &run.ID, "warn", "cancelled by user")
 		log.Info("job cancelled")
 		return
 	}
@@ -216,6 +271,7 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 		if err := w.store.SetJobStatus(ctx, jobID, "success"); err != nil {
 			log.Error("set job status", "error", err)
 		}
+		w.jobLog(ctx, log, jobID, &run.ID, "info", "attempt succeeded")
 		return
 	}
 
@@ -223,6 +279,7 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 	if err := w.store.FinishJobRun(ctx, run.ID, "failed", &errMsg); err != nil {
 		log.Error("finish job run", "error", err)
 	}
+	w.jobLog(ctx, log, jobID, &run.ID, "error", "attempt failed: "+errMsg)
 
 	count, max, dead, err := w.store.RetryOrDeadLetter(ctx, jobID)
 	if err != nil {
@@ -231,13 +288,33 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 	}
 	if dead {
 		log.Warn("job dead-lettered", "retries", count, "max", max)
+		w.jobLog(ctx, log, jobID, &run.ID, "error", fmt.Sprintf("dead-lettered after %d/%d retries", count, max))
+		if _, err := w.store.CreateDLQEntry(ctx, jobID, job.QueueID, &errMsg, count); err != nil {
+			log.Error("create dlq entry", "error", err)
+		}
 		return
 	}
 
-	log.Info("job requeued for retry", "attempt", count, "max", max, "delay", retryDelay)
-	time.AfterFunc(retryDelay, func() {
+	delay := retryDelay
+	if policy, ok, err := w.store.EffectiveRetryPolicy(ctx, jobID); err != nil {
+		log.Error("get effective retry policy", "error", err)
+	} else if ok {
+		delay = policy.Delay(count)
+	}
+
+	log.Info("job requeued for retry", "attempt", count, "max", max, "delay", delay)
+	w.jobLog(ctx, log, jobID, &run.ID, "warn", fmt.Sprintf("requeued for retry %d/%d in %s", count, max, delay))
+	time.AfterFunc(delay, func() {
 		if err := w.producer.PublishJob(context.Background(), kafkapkg.TopicRetry, jobID); err != nil {
 			slog.Error("publish retry", "job_id", jobID, "error", err)
 		}
 	})
+}
+
+// jobLog persists a job_logs row, logging (not failing the caller) on error
+// — a lost log line shouldn't affect job execution.
+func (w *worker) jobLog(ctx context.Context, log *slog.Logger, jobID uuid.UUID, runID *uuid.UUID, level, message string) {
+	if _, err := w.store.CreateJobLog(ctx, jobID, runID, level, message); err != nil {
+		log.Error("write job log", "error", err)
+	}
 }

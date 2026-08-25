@@ -3,10 +3,14 @@
 package httpapi
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"distributed-job-scheduler/internal/authsvc"
+	"distributed-job-scheduler/internal/heartbeat"
 	"distributed-job-scheduler/internal/store"
 )
 
@@ -14,11 +18,12 @@ type Server struct {
 	store           *store.Store
 	tokens          authsvc.TokenIssuer
 	refreshTokenTTL time.Duration
+	redis           *redis.Client
 	mux             *http.ServeMux
 }
 
-func NewServer(st *store.Store, tokens authsvc.TokenIssuer, refreshTokenTTL time.Duration) *Server {
-	s := &Server{store: st, tokens: tokens, refreshTokenTTL: refreshTokenTTL, mux: http.NewServeMux()}
+func NewServer(st *store.Store, tokens authsvc.TokenIssuer, refreshTokenTTL time.Duration, rdb *redis.Client) *Server {
+	s := &Server{store: st, tokens: tokens, refreshTokenTTL: refreshTokenTTL, redis: rdb, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -46,9 +51,66 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PATCH /projects/{projectId}", s.requireAuth(s.handleUpdateProject))
 	s.mux.HandleFunc("DELETE /projects/{projectId}", s.requireAuth(s.handleDeleteProject))
 
+	s.mux.HandleFunc("GET /projects/{projectId}/queues", s.requireAuth(s.handleListQueues))
+	s.mux.HandleFunc("POST /projects/{projectId}/queues", s.requireAuth(s.handleCreateQueue))
+	s.mux.HandleFunc("GET /queues/{queueId}", s.requireAuth(s.handleGetQueue))
+	s.mux.HandleFunc("PATCH /queues/{queueId}", s.requireAuth(s.handleUpdateQueue))
+	s.mux.HandleFunc("DELETE /queues/{queueId}", s.requireAuth(s.handleDeleteQueue))
+	s.mux.HandleFunc("POST /queues/{queueId}/pause", s.requireAuth(s.handlePauseQueue))
+	s.mux.HandleFunc("POST /queues/{queueId}/resume", s.requireAuth(s.handleResumeQueue))
+	s.mux.HandleFunc("GET /queues/{queueId}/stats", s.requireAuth(s.handleQueueStats))
+
+	s.mux.HandleFunc("GET /queues/{queueId}/scheduled-jobs", s.requireAuth(s.handleListScheduledJobs))
+	s.mux.HandleFunc("POST /queues/{queueId}/scheduled-jobs", s.requireAuth(s.handleCreateScheduledJob))
+	s.mux.HandleFunc("GET /scheduled-jobs/{scheduledJobId}", s.requireAuth(s.handleGetScheduledJob))
+	s.mux.HandleFunc("PATCH /scheduled-jobs/{scheduledJobId}", s.requireAuth(s.handleUpdateScheduledJob))
+	s.mux.HandleFunc("DELETE /scheduled-jobs/{scheduledJobId}", s.requireAuth(s.handleDeleteScheduledJob))
+	s.mux.HandleFunc("POST /scheduled-jobs/{scheduledJobId}/pause", s.requireAuth(s.handlePauseScheduledJob))
+	s.mux.HandleFunc("POST /scheduled-jobs/{scheduledJobId}/resume", s.requireAuth(s.handleResumeScheduledJob))
+
+	s.mux.HandleFunc("GET /projects/{projectId}/retry-policies", s.requireAuth(s.handleListRetryPolicies))
+	s.mux.HandleFunc("POST /projects/{projectId}/retry-policies", s.requireAuth(s.handleCreateRetryPolicy))
+	s.mux.HandleFunc("GET /retry-policies/{retryPolicyId}", s.requireAuth(s.handleGetRetryPolicy))
+	s.mux.HandleFunc("PATCH /retry-policies/{retryPolicyId}", s.requireAuth(s.handleUpdateRetryPolicy))
+	s.mux.HandleFunc("DELETE /retry-policies/{retryPolicyId}", s.requireAuth(s.handleDeleteRetryPolicy))
+
+	s.mux.HandleFunc("GET /workers", s.requireAuth(s.handleListWorkers))
+	s.mux.HandleFunc("GET /workers/{workerId}", s.requireAuth(s.handleGetWorker))
+
+	s.mux.HandleFunc("GET /queues/{queueId}/dlq", s.requireAuth(s.handleListQueueDLQ))
+	s.mux.HandleFunc("GET /dlq/{dlqId}", s.requireAuth(s.handleGetDLQEntry))
+	s.mux.HandleFunc("POST /dlq/{dlqId}/replay", s.requireAuth(s.handleReplayDLQEntry))
+	s.mux.HandleFunc("DELETE /dlq/{dlqId}", s.requireAuth(s.handleDeleteDLQEntry))
+
 	s.mux.HandleFunc("GET /system/health", s.handleHealth)
 }
 
+type healthResponse struct {
+	Status         string                `json:"status"`
+	WatcherService watcherHealthResponse `json:"watcher_service"`
+}
+
+type watcherHealthResponse struct {
+	Alive                bool    `json:"alive"`
+	LastPollAt           *string `json:"last_poll_at,omitempty"`
+	SecondsSinceLastPoll *int    `json:"seconds_since_last_poll,omitempty"`
+}
+
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	resp := healthResponse{Status: "ok"}
+
+	status, err := heartbeat.Get(r.Context(), s.redis)
+	if err != nil {
+		slog.Error("get watcher heartbeat", "error", err)
+	} else {
+		resp.WatcherService.Alive = status.Alive
+		if !status.LastPollAt.IsZero() {
+			t := status.LastPollAt.Format(timeFormat)
+			resp.WatcherService.LastPollAt = &t
+			secs := int(time.Since(status.LastPollAt).Seconds())
+			resp.WatcherService.SecondsSinceLastPoll = &secs
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }

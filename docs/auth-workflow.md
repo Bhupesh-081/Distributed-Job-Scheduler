@@ -110,8 +110,11 @@ never leak details to the client.
 
 ## What's deliberately not built yet
 
-- Queues, jobs, workers, RabbitMQ, Redis — next slice, blocked on deciding
-  what a "job" actually executes (see README's "What jobs actually run").
+- Auth on this doc covers `cmd/api`/`cmd/job-service` only. Queues, jobs,
+  retry policies, workers, recurring (cron) jobs, and the DLQ are all
+  implemented (see [architecture.md](./architecture.md),
+  [database-schema.md](./database-schema.md)) and scoped by the same
+  org-membership rules described here.
 - Fine-grained RBAC beyond owner/member.
 - Rate limiting / lockout on `/auth/login` (brute-force protection) — worth
   adding before this is internet-facing.

@@ -13,6 +13,7 @@ type Config struct {
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
+	RedisAddr       string
 }
 
 func Load() (Config, error) {
@@ -22,6 +23,7 @@ func Load() (Config, error) {
 		JWTSecret:       os.Getenv("JWT_SECRET"),
 		AccessTokenTTL:  15 * time.Minute,
 		RefreshTokenTTL: 7 * 24 * time.Hour,
+		RedisAddr:       getenv("REDIS_ADDR", "localhost:6379"),
 	}
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")
