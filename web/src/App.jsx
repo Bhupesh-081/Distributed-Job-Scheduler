@@ -8,7 +8,10 @@ import Workers from "./components/Workers";
 import Overview from "./components/Overview";
 import Settings from "./components/Settings";
 import AuthScreen from "./components/AuthScreen";
-import { IconBolt, IconChart, IconFolder, IconServer, IconSettings } from "./components/Icons";
+import EmptyState from "./components/EmptyState";
+import Account from "./components/Account";
+import Breadcrumbs from "./components/Breadcrumbs";
+import { IconBolt, IconChart, IconFolder, IconServer, IconSettings, IconUser } from "./components/Icons";
 
 // Org -> project -> (queues | retry policies) -> queue detail (jobs / scheduled jobs / DLQ).
 function OrgsBrowser() {
@@ -110,104 +113,102 @@ function OrgsBrowser() {
     }
   }
 
-  // --- breadcrumb-driven views ---
-  if (!org) {
-    return (
-      <div>
-        <div className="content-header"><h2>Organizations</h2></div>
-        <form className="card inline-form" onSubmit={createOrg}>
-          <input placeholder="New organization name" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
-          <button className="btn-primary" type="submit">Create</button>
-        </form>
-        {error && <div className="error">{error}</div>}
-        {orgs.length === 0 ? (
-          <p className="muted">No organizations yet - create one above.</p>
-        ) : (
-          <ul className="org-list">
-            {orgs.map((o) => (
-              <li key={o.id} className="card org-row">
-                <span className="org-name">{o.name}</span>
-                <button className="link" onClick={() => selectOrg(o)}>Open</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div>
-        <div className="content-header">
-          <div>
-            <button className="link" onClick={() => setOrg(null)}>&larr; Organizations</button>
-            <h2 style={{ margin: "6px 0 0" }}>{org.name}</h2>
-          </div>
-        </div>
-        <form className="card inline-form" onSubmit={createProject}>
-          <input placeholder="New project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
-          <button className="btn-primary" type="submit">Create</button>
-        </form>
-        {error && <div className="error">{error}</div>}
-        {projects.length === 0 ? (
-          <p className="muted">No projects yet - create one above.</p>
-        ) : (
-          <ul className="org-list">
-            {projects.map((p) => (
-              <li key={p.id} className="card org-row">
-                <span className="org-name">{p.name}</span>
-                <button className="link" onClick={() => selectProject(p)}>Open</button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
-  if (openQueue) {
-    return (
-      <QueueDetail
-        queue={openQueue}
-        retryPolicies={retryPolicies}
-        onBack={() => setOpenQueue(null)}
-        onChanged={(updated) => {
-          setOpenQueue(updated);
-          refreshQueues();
-        }}
-      />
-    );
-  }
+  const crumbs = [{ label: "Organizations", onClick: org ? () => { setOrg(null); setProject(null); setOpenQueue(null); } : undefined }];
+  if (org) crumbs.push({ label: org.name, onClick: project ? () => { setProject(null); setOpenQueue(null); } : undefined });
+  if (project) crumbs.push({ label: project.name, onClick: openQueue ? () => setOpenQueue(null) : undefined });
+  if (openQueue) crumbs.push({ label: openQueue.name });
 
   return (
     <div>
-      <div className="content-header">
-        <div>
-          <button className="link" onClick={() => setProject(null)}>&larr; {org.name}</button>
-          <h2 style={{ margin: "6px 0 0" }}>{project.name}</h2>
-        </div>
-      </div>
+      <Breadcrumbs items={crumbs} />
 
-      {error && <div className="error">{error}</div>}
+      {!org && (
+        <>
+          <div className="content-header"><h2>Organizations</h2></div>
+          <form className="card inline-form" onSubmit={createOrg}>
+            <input placeholder="New organization name" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+            <button className="btn-primary" type="submit">Create</button>
+          </form>
+          {error && <div className="error">{error}</div>}
+          {orgs.length === 0 ? (
+            <EmptyState
+              icon={IconFolder}
+              title="No organizations yet"
+              description="Create one above to start adding projects, queues, and jobs."
+            />
+          ) : (
+            <ul className="org-list">
+              {orgs.map((o) => (
+                <li key={o.id} className="card org-row">
+                  <span className="org-name">{o.name}</span>
+                  <button className="link" onClick={() => selectOrg(o)}>Open</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
-      <div className="tabs">
-        {["Queues", "Retry policies"].map((t) => (
-          <button key={t} className={`tab ${projectTab === t ? "tab-active" : ""}`} onClick={() => setProjectTab(t)}>{t}</button>
-        ))}
-      </div>
+      {org && !project && (
+        <>
+          <div className="content-header"><h2>{org.name}</h2></div>
+          <form className="card inline-form" onSubmit={createProject}>
+            <input placeholder="New project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
+            <button className="btn-primary" type="submit">Create</button>
+          </form>
+          {error && <div className="error">{error}</div>}
+          {projects.length === 0 ? (
+            <EmptyState
+              icon={IconFolder}
+              title="No projects yet"
+              description="Create one above - every project can own multiple queues."
+            />
+          ) : (
+            <ul className="org-list">
+              {projects.map((p) => (
+                <li key={p.id} className="card org-row">
+                  <span className="org-name">{p.name}</span>
+                  <button className="link" onClick={() => selectProject(p)}>Open</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
 
-      {projectTab === "Queues" && (
-        <Queues
-          projectId={project.id}
-          queues={queues}
+      {org && project && openQueue && (
+        <QueueDetail
+          queue={openQueue}
           retryPolicies={retryPolicies}
-          refresh={refreshQueues}
-          onOpen={setOpenQueue}
+          onChanged={(updated) => {
+            setOpenQueue(updated);
+            refreshQueues();
+          }}
         />
       )}
-      {projectTab === "Retry policies" && (
-        <RetryPolicies projectId={project.id} policies={retryPolicies} refresh={refreshRetryPolicies} />
+
+      {org && project && !openQueue && (
+        <>
+          <div className="content-header"><h2>{project.name}</h2></div>
+          {error && <div className="error">{error}</div>}
+          <div className="tabs">
+            {["Queues", "Retry policies"].map((t) => (
+              <button key={t} className={`tab ${projectTab === t ? "tab-active" : ""}`} onClick={() => setProjectTab(t)}>{t}</button>
+            ))}
+          </div>
+          {projectTab === "Queues" && (
+            <Queues
+              projectId={project.id}
+              queues={queues}
+              retryPolicies={retryPolicies}
+              refresh={refreshQueues}
+              onOpen={setOpenQueue}
+            />
+          )}
+          {projectTab === "Retry policies" && (
+            <RetryPolicies projectId={project.id} policies={retryPolicies} refresh={refreshRetryPolicies} />
+          )}
+        </>
       )}
     </div>
   );
@@ -217,11 +218,17 @@ const NAV = [
   { id: "overview", label: "Overview", icon: IconChart },
   { id: "organizations", label: "Organizations", icon: IconFolder },
   { id: "workers", label: "Workers", icon: IconServer },
+  { id: "account", label: "Account", icon: IconUser },
   { id: "settings", label: "Settings", icon: IconSettings },
 ];
 
 function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("overview");
+  const [me, setMe] = useState(null);
+
+  useEffect(() => {
+    api.getMe().then(setMe).catch(() => {});
+  }, []);
 
   return (
     <div className="shell">
@@ -230,6 +237,11 @@ function Dashboard({ onLogout }) {
           <span className="brand-mark"><IconBolt size={18} /></span>
           <span className="brand">Job Scheduler</span>
         </div>
+        {me && (
+          <button type="button" className="sidebar-whoami" onClick={() => setTab("account")}>
+            {me.display_name || me.email}
+          </button>
+        )}
         <nav className="sidenav">
           {NAV.map((n) => (
             <button
@@ -241,14 +253,21 @@ function Dashboard({ onLogout }) {
             </button>
           ))}
         </nav>
-        <button type="button" className="link sidebar-signout" onClick={onLogout}>Sign out</button>
+        <button
+          type="button"
+          className="link sidebar-signout"
+          onClick={() => window.confirm("Sign out?") && onLogout()}
+        >
+          Sign out
+        </button>
         <div className="sidebar-footer muted">Distributed Job Scheduler</div>
       </aside>
 
       <main className="content">
-        {tab === "overview" && <Overview />}
+        {tab === "overview" && <Overview onNavigate={setTab} />}
         {tab === "organizations" && <OrgsBrowser />}
         {tab === "workers" && <Workers />}
+        {tab === "account" && <Account onLogout={onLogout} />}
         {tab === "settings" && <Settings />}
       </main>
     </div>
@@ -263,7 +282,11 @@ export default function App() {
   }, []);
 
   function handleLogout() {
-    api.logout().finally(() => setLoggedIn(false));
+    // Flip immediately (unmounts Dashboard and every child's state right
+    // away) instead of waiting on the revoke call - no window where a
+    // stale job/log view stays on screen while the request is in flight.
+    setLoggedIn(false);
+    api.logout();
   }
 
   return loggedIn ? (

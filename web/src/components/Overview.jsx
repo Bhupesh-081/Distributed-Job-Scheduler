@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import * as api from "../api";
 import { getSettings } from "../settings";
 import LineChart from "./Chart";
+import { IconFolder, IconServer, IconSettings } from "./Icons";
+
+const QUICK_ACTIONS = [
+  { tab: "organizations", icon: IconFolder, title: "Organizations", desc: "Manage projects, queues, and jobs" },
+  { tab: "workers", icon: IconServer, title: "Workers", desc: "Check worker status and heartbeats" },
+  { tab: "settings", icon: IconSettings, title: "Settings", desc: "Theme, refresh rate, job types" },
+];
 
 // Same tokens the .status-* badge classes use (index.css) - keeps the
 // donut/legend colors in sync with the badges and with light/dark theme
@@ -31,7 +38,7 @@ function loadStatus(load, cores) {
   return { label: "Overloaded", cls: "pill-bad" };
 }
 
-export default function Overview() {
+export default function Overview({ onNavigate }) {
   const [m, setM] = useState(null);
   const [error, setError] = useState("");
   const [cpuHistory, setCpuHistory] = useState([]);
@@ -83,6 +90,18 @@ export default function Overview() {
       <div className="content-header"><h2>Overview</h2></div>
 
       {error && <div className="error">{error}</div>}
+
+      <div className="quick-actions">
+        {QUICK_ACTIONS.map(({ tab, icon: Icon, title, desc }) => (
+          <button key={tab} type="button" className="card quick-action" onClick={() => onNavigate(tab)}>
+            <span className="quick-action-icon"><Icon size={20} /></span>
+            <span className="quick-action-text">
+              <span className="quick-action-title">{title}</span>
+              <span className="muted">{desc}</span>
+            </span>
+          </button>
+        ))}
+      </div>
 
       <div className="stat-grid">
         <Tile label="Jobs queued" value={m.jobs_queued} />

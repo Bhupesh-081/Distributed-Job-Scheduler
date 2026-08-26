@@ -129,6 +129,15 @@ export function IconDatabase({ size = 16 }) {
   );
 }
 
+export function IconUser({ size = 16 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} {...base}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-3.3 3.6-6 8-6s8 2.7 8 6" />
+    </svg>
+  );
+}
+
 const JOB_TYPE_ICONS = {
   terminal: IconTerminal,
   code: IconCode,

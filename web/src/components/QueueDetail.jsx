@@ -7,7 +7,7 @@ import Dlq from "./Dlq";
 
 const TABS = ["Jobs", "Scheduled jobs", "Dead letter queue"];
 
-export default function QueueDetail({ queue, retryPolicies, onBack, onChanged }) {
+export default function QueueDetail({ queue, retryPolicies, onChanged }) {
   const [tab, setTab] = useState("Jobs");
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
@@ -41,8 +41,7 @@ export default function QueueDetail({ queue, retryPolicies, onBack, onChanged })
     <div>
       <div className="content-header">
         <div>
-          <button className="link" onClick={onBack}>&larr; Back to queues</button>
-          <h2 style={{ margin: "6px 0 0" }}>{queue.name}</h2>
+          <h2 style={{ margin: 0 }}>{queue.name}</h2>
           <p className="muted">
             priority {queue.priority} · concurrency {queue.concurrency_limit} · {queue.paused ? "paused" : "active"}
           </p>

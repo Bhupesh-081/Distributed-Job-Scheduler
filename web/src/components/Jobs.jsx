@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as api from "../api";
-import { fmtDate, statusClass } from "../format";
+import { fmtDate, fmtDuration, durationMs, statusClass } from "../format";
 import { getSettings } from "../settings";
 import JobForm from "./JobForm";
+import RunHistoryGrid from "./RunHistoryGrid";
 
 const TERMINAL = new Set(["success", "failed", "dead", "cancelled"]);
+const DURATION_BAR_CAP_MS = 30_000; // bar fills at 30s+, same scale for every row
 
 // Applies one job_updated push to the currently-filtered list: update in
 // place, insert if new, or drop it if it no longer matches the status
@@ -19,9 +21,22 @@ function mergeJob(list, job, statusFilter) {
   return next;
 }
 
+function DurationCell({ job }) {
+  const ms = durationMs(job);
+  if (ms === null) return <span className="muted">-</span>;
+  const pct = Math.min(100, (ms / DURATION_BAR_CAP_MS) * 100);
+  return (
+    <div className="duration-cell">
+      <span className="duration-bar"><span className="duration-bar-fill" style={{ width: `${pct}%` }} /></span>
+      <span className="mono">{fmtDuration(job)}</span>
+    </div>
+  );
+}
+
 export default function Jobs({ queueId, retryPolicies }) {
   const [jobs, setJobs] = useState([]);
   const [status, setStatus] = useState("");
+  const [nameFilter, setNameFilter] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [detail, setDetail] = useState(null);
@@ -111,6 +126,10 @@ export default function Jobs({ queueId, retryPolicies }) {
     }
   }
 
+  const visibleJobs = nameFilter.trim()
+    ? jobs.filter((j) => j.name.toLowerCase().includes(nameFilter.trim().toLowerCase()))
+    : jobs;
+
   return (
     <div>
       <JobForm retryPolicies={retryPolicies} busy={busy} onSubmit={createFromForm} />
@@ -119,29 +138,42 @@ export default function Jobs({ queueId, retryPolicies }) {
 
       <div className="content-header">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h3 style={{ margin: 0 }}>Jobs</h3>
+          <h3 style={{ margin: 0 }}>Recent runs</h3>
           <span className={`pill ${live ? "pill-good" : "pill-warn"}`}>{live ? "Live" : "Reconnecting…"}</span>
         </div>
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          {["queued", "running", "success", "failed", "dead", "cancelled"].map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+      </div>
+      <RunHistoryGrid jobs={jobs} />
+
+      <div className="content-header">
+        <h3 style={{ margin: 0 }}>Jobs</h3>
+        <div className="jobs-filters">
+          <input
+            placeholder="Filter by name…"
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+          />
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All statuses</option>
+            {["queued", "running", "success", "failed", "dead", "cancelled"].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <table className="table">
         <thead>
           <tr>
-            <th>Name</th><th>Type</th><th>Status</th><th>Retries</th><th>Created</th><th></th>
+            <th>Name</th><th>Type</th><th>Status</th><th>Duration</th><th>Retries</th><th>Created</th><th></th>
           </tr>
         </thead>
         <tbody>
-          {jobs.map((j) => (
+          {visibleJobs.map((j) => (
             <tr key={j.id}>
               <td>{j.name}</td>
               <td>{j.scheduled_type}</td>
               <td><span className={statusClass(j.status)}>{j.status}</span></td>
+              <td><DurationCell job={j} /></td>
               <td>{j.retries_count}/{j.retries_max}</td>
               <td>{fmtDate(j.created_at)}</td>
               <td className="row-actions">
@@ -152,8 +184,8 @@ export default function Jobs({ queueId, retryPolicies }) {
               </td>
             </tr>
           ))}
-          {jobs.length === 0 && (
-            <tr><td colSpan={6} className="muted">No jobs for this queue.</td></tr>
+          {visibleJobs.length === 0 && (
+            <tr><td colSpan={7} className="muted">{jobs.length === 0 ? "No jobs for this queue." : "No jobs match that filter."}</td></tr>
           )}
         </tbody>
       </table>

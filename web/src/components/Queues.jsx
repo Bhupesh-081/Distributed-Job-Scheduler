@@ -7,6 +7,7 @@ export default function Queues({ projectId, queues, retryPolicies, refresh, onOp
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [nameFilter, setNameFilter] = useState("");
 
   async function create(e) {
     e.preventDefault();
@@ -47,6 +48,10 @@ export default function Queues({ projectId, queues, retryPolicies, refresh, onOp
     }
   }
 
+  const visibleQueues = nameFilter.trim()
+    ? queues.filter((q) => q.name.toLowerCase().includes(nameFilter.trim().toLowerCase()))
+    : queues;
+
   return (
     <div>
       <form className="card form-grid" onSubmit={create}>
@@ -69,12 +74,22 @@ export default function Queues({ projectId, queues, retryPolicies, refresh, onOp
 
       {error && <div className="error">{error}</div>}
 
+      <div className="content-header">
+        <h3 style={{ margin: 0 }}>Queues</h3>
+        <input
+          placeholder="Filter by name…"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          style={{ width: 200 }}
+        />
+      </div>
+
       <table className="table">
         <thead>
           <tr><th>Name</th><th>Priority</th><th>Concurrency</th><th>Status</th><th></th></tr>
         </thead>
         <tbody>
-          {queues.map((q) => (
+          {visibleQueues.map((q) => (
             <tr key={q.id}>
               <td>{q.name}</td>
               <td>{q.priority}</td>
@@ -87,8 +102,8 @@ export default function Queues({ projectId, queues, retryPolicies, refresh, onOp
               </td>
             </tr>
           ))}
-          {queues.length === 0 && (
-            <tr><td colSpan={5} className="muted">No queues yet - create one above.</td></tr>
+          {visibleQueues.length === 0 && (
+            <tr><td colSpan={5} className="muted">{queues.length === 0 ? "No queues yet - create one above." : "No queues match that filter."}</td></tr>
           )}
         </tbody>
       </table>

@@ -65,8 +65,15 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
-  background: var(--bg);
   color: var(--ink);
+  /* Same ambient wash as the login screen (minus its pulsing glow orbs and
+     floating icons - too much motion for a dashboard read during real
+     work), so the whole app feels like one theme, not two. */
+  background:
+    radial-gradient(1200px 800px at 15% 20%, color-mix(in srgb, var(--accent-strong) 10%, transparent) 0%, transparent 55%),
+    radial-gradient(1000px 700px at 85% 80%, color-mix(in srgb, var(--purple) 10%, transparent) 0%, transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
 }
 
 h1, h2, h3, h4 {
@@ -74,10 +81,11 @@ h1, h2, h3, h4 {
 }
 
 .card {
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent), var(--shadow);
 }
 
 .brand {
@@ -116,6 +124,28 @@ h1, h2, h3, h4 {
 
 .brand-mark {
   font-size: 18px;
+}
+
+.sidebar-whoami {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  margin-top: -10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-whoami:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .sidenav {
@@ -170,6 +200,94 @@ h1, h2, h3, h4 {
   flex: 1;
   min-width: 0;
   padding: 32px 40px;
+}
+
+/* --- breadcrumbs --- */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.breadcrumb-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.breadcrumb-current {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.breadcrumb-sep {
+  color: var(--muted);
+  margin: 0 6px;
+}
+
+/* --- run-history grid (Airflow-style "grid view") --- */
+.run-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.run-cell {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  cursor: default;
+  transition: transform 0.1s ease;
+}
+
+.run-cell:hover {
+  transform: scale(1.25);
+}
+
+.jobs-filters {
+  display: flex;
+  gap: 10px;
+}
+
+.jobs-filters input {
+  width: 200px;
+}
+
+.duration-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.duration-bar {
+  display: inline-block;
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.duration-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
 }
 
 .content-header {
@@ -251,10 +369,13 @@ input:focus, select:focus, textarea:focus {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--accent-strong-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-strong) 45%, transparent);
 }
 
 .btn-primary:disabled {
@@ -274,6 +395,12 @@ input:focus, select:focus, textarea:focus {
 
 .link:hover {
   text-decoration: underline;
+}
+
+.link:disabled {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: none;
 }
 
 .error {
@@ -393,22 +520,23 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .table th,
 .table td {
   text-align: left;
-  padding: 10px 14px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border);
+  line-height: 1.4;
 }
 
 .table th {
   color: var(--muted);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   background: color-mix(in srgb, var(--accent) 6%, var(--card));
 }
 
@@ -468,6 +596,86 @@ input:focus, select:focus, textarea:focus {
 .status-failed { background: color-mix(in srgb, var(--status-failed) 20%, transparent); color: var(--status-failed); }
 .status-dead { background: color-mix(in srgb, var(--status-dead) 22%, transparent); color: var(--status-dead); }
 .status-cancelled { background: color-mix(in srgb, var(--status-cancelled) 20%, transparent); color: var(--status-cancelled); }
+
+/* --- quick actions (Overview) --- */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.quick-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.quick-action:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-strong) 25%, transparent);
+}
+
+.quick-action-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-strong), var(--purple));
+  color: #fff;
+}
+
+.quick-action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quick-action-title {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+/* --- empty states --- */
+.empty-state {
+  padding: 32px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty-state-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.empty-state h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.empty-state p {
+  margin: 0;
+  max-width: 320px;
+}
 
 /* --- stat tiles --- */
 .stat-grid {
@@ -664,6 +872,56 @@ input:focus, select:focus, textarea:focus {
   color: var(--accent);
 }
 
+.account-name-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.account-name-form label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.account-verify-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 10px;
+}
+
+.account-verify-form .otp-input {
+  flex: 1;
+  max-width: 200px;
+}
+
+.account-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+  max-width: 360px;
+}
+
+.account-password-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.account-password-form .btn-primary {
+  align-self: flex-start;
+}
+
 .settings-jobtype-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -808,36 +1066,24 @@ input:focus, select:focus, textarea:focus {
   position: absolute;
   display: block;
   color: var(--accent);
-  opacity: 0.32;
+  opacity: 0.34;
   pointer-events: auto;
   cursor: default;
-  animation:
-    auth-float var(--dur, 10s) ease-in-out var(--delay, 0s) infinite,
-    auth-glitch 6s linear var(--delay, 0s) infinite;
-  transition: transform 0.25s ease, opacity 0.25s ease, color 0.25s ease;
+  animation: auth-float var(--dur, 10s) ease-in-out var(--delay, 0s) infinite;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease, color 0.25s ease, filter 0.25s ease;
 }
 
 .auth-floater:hover {
-  opacity: 0.9;
+  opacity: 1;
   color: var(--purple);
-  transform: scale(1.35) !important;
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--purple) 70%, transparent));
+  transform: scale(1.75) !important;
   animation-play-state: paused;
 }
 
 @keyframes auth-float {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
   50% { transform: translate(14px, -18px) rotate(8deg); }
-}
-
-/* A brief RGB-split "glitch" burst once per cycle, otherwise motionless -
-   staggered per icon via --delay so the background never glitches in
-   unison. */
-@keyframes auth-glitch {
-  0%, 90%, 100% { filter: none; }
-  91% { filter: drop-shadow(2px 0 #ea4335) drop-shadow(-2px 0 #8ab4f8); transform: translateX(-2px); }
-  92% { filter: drop-shadow(-2px 0 #ea4335) drop-shadow(2px 0 #8ab4f8); transform: translateX(2px); }
-  93% { filter: drop-shadow(1px 0 #ea4335) drop-shadow(-1px 0 #8ab4f8); transform: translateX(-1px); }
-  94% { filter: none; transform: translateX(0); }
 }
 
 .auth-card {
@@ -898,7 +1144,21 @@ input:focus, select:focus, textarea:focus {
 
 .auth-heading {
   font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.auth-subtext {
+  color: var(--muted);
+  font-size: 13px;
   margin: 0 0 16px;
+}
+
+.otp-input {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.5em;
+  padding-left: calc(12px + 0.5em);
 }
 
 .auth-card label {
@@ -917,12 +1177,6 @@ input:focus, select:focus, textarea:focus {
 
 .auth-submit {
   margin-top: 6px;
-  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-}
-
-.auth-submit:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-strong) 45%, transparent);
 }
 
 .auth-switch {

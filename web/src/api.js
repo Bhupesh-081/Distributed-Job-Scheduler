@@ -3,12 +3,19 @@ const JOB_BASE = import.meta.env.VITE_JOB_API_URL || "http://localhost:8081";
 
 let accessToken = null;
 
+// sessionStorage, not localStorage: localStorage is shared by every tab of
+// the browser, so logging into a different account in one tab would
+// silently overwrite the refresh token another open tab is using - that
+// tab keeps showing its already-fetched (correctly-scoped) data until its
+// access token expires, then silently re-authenticates as whoever now owns
+// the shared token, with no reload to clear the stale UI. sessionStorage is
+// isolated per tab, so one tab's session can never bleed into another's.
 function setSession(tokens) {
   accessToken = tokens?.access_token ?? null;
   if (tokens?.refresh_token) {
-    localStorage.setItem("refresh_token", tokens.refresh_token);
+    sessionStorage.setItem("refresh_token", tokens.refresh_token);
   } else {
-    localStorage.removeItem("refresh_token");
+    sessionStorage.removeItem("refresh_token");
   }
 }
 
@@ -36,7 +43,7 @@ async function authed(base, path, opts = {}) {
   try {
     return await raw(base, path, opts);
   } catch (err) {
-    const rt = localStorage.getItem("refresh_token");
+    const rt = sessionStorage.getItem("refresh_token");
     if (!rt) throw err;
     const tokens = await raw(API_BASE, "/auth/refresh", { body: { refresh_token: rt } });
     setSession(tokens);
@@ -65,7 +72,7 @@ export async function login(email, password) {
 }
 
 export async function logout() {
-  const rt = localStorage.getItem("refresh_token");
+  const rt = sessionStorage.getItem("refresh_token");
   if (rt) {
     try {
       await raw(API_BASE, "/auth/logout", { body: { refresh_token: rt } });
@@ -77,8 +84,21 @@ export async function logout() {
 }
 
 export function isLoggedIn() {
-  return !!accessToken || !!localStorage.getItem("refresh_token");
+  return !!accessToken || !!sessionStorage.getItem("refresh_token");
 }
+
+// --- email verification / forgot-password, both via a 6-digit OTP ---
+export const verifyEmailOtp = (email, code) => raw(API_BASE, "/auth/verify-email", { body: { email, code } });
+export const resendVerificationOtp = (email) => raw(API_BASE, "/auth/resend-verification", { body: { email } });
+export const forgotPassword = (email) => raw(API_BASE, "/auth/forgot-password", { body: { email } });
+export const resetPasswordOtp = (email, code, newPassword) =>
+  raw(API_BASE, "/auth/reset-password", { body: { email, code, new_password: newPassword } });
+
+// --- account ---
+export const getMe = () => api("/auth/me");
+export const updateDisplayName = (displayName) => api("/auth/me", { method: "PATCH", body: { display_name: displayName } });
+export const changePassword = (currentPassword, newPassword) =>
+  api("/auth/change-password", { body: { current_password: currentPassword, new_password: newPassword } });
 
 // --- organizations / projects ---
 export const listOrganizations = () => api("/organizations");
