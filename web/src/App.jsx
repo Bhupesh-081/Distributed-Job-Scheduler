@@ -1,145 +1,255 @@
 import { useEffect, useState } from "react";
 import * as api from "./api";
+import { getSettings, applyTheme } from "./settings";
+import Queues from "./components/Queues";
+import QueueDetail from "./components/QueueDetail";
+import RetryPolicies from "./components/RetryPolicies";
+import Workers from "./components/Workers";
+import Overview from "./components/Overview";
+import Settings from "./components/Settings";
+import AuthScreen from "./components/AuthScreen";
+import { IconBolt, IconChart, IconFolder, IconServer, IconSettings } from "./components/Icons";
 
-function AuthForm({ onAuthed }) {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e) {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      if (mode === "login") await api.login(email, password);
-      else await api.register(email, password);
-      onAuthed();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="auth-screen">
-      <form className="card auth-card" onSubmit={submit}>
-        <h1 className="brand">Job Scheduler</h1>
-        <p className="subtitle">{mode === "login" ? "Sign in to your account" : "Create an account"}</p>
-
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
-            required
-          />
-        </label>
-
-        {error && <div className="error">{error}</div>}
-
-        <button className="btn-primary" type="submit" disabled={busy}>
-          {busy ? "…" : mode === "login" ? "Sign in" : "Create account"}
-        </button>
-
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            setError("");
-            setMode(mode === "login" ? "register" : "login");
-          }}
-        >
-          {mode === "login" ? "Need an account? Register" : "Have an account? Sign in"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function Dashboard({ onLogout }) {
+// Org -> project -> (queues | retry policies) -> queue detail (jobs / scheduled jobs / DLQ).
+function OrgsBrowser() {
   const [orgs, setOrgs] = useState([]);
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [orgName, setOrgName] = useState("");
+  const [org, setOrg] = useState(null);
 
-  async function refresh() {
+  const [projects, setProjects] = useState([]);
+  const [projectName, setProjectName] = useState("");
+  const [project, setProject] = useState(null);
+  const [projectTab, setProjectTab] = useState("Queues");
+
+  const [queues, setQueues] = useState([]);
+  const [retryPolicies, setRetryPolicies] = useState([]);
+  const [openQueue, setOpenQueue] = useState(null);
+
+  const [error, setError] = useState("");
+
+  async function refreshOrgs() {
     setError("");
     try {
       setOrgs(await api.listOrganizations());
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }
 
   useEffect(() => {
-    refresh();
+    refreshOrgs();
   }, []);
 
   async function createOrg(e) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!orgName.trim()) return;
     setError("");
     try {
-      await api.createOrganization(name.trim());
-      setName("");
-      refresh();
+      await api.createOrganization(orgName.trim());
+      setOrgName("");
+      refreshOrgs();
     } catch (err) {
       setError(err.message);
     }
   }
 
-  return (
-    <div className="shell">
-      <header className="topbar">
-        <span className="brand">Job Scheduler</span>
-        <button className="link" onClick={onLogout}>
-          Sign out
-        </button>
-      </header>
+  async function selectOrg(o) {
+    setOrg(o);
+    setProject(null);
+    setOpenQueue(null);
+    setError("");
+    try {
+      setProjects(await api.listProjects(o.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
-      <main className="content">
-        <div className="content-header">
-          <h2>Organizations</h2>
-        </div>
+  async function createProject(e) {
+    e.preventDefault();
+    if (!projectName.trim()) return;
+    setError("");
+    try {
+      await api.createProject(org.id, projectName.trim());
+      setProjectName("");
+      setProjects(await api.listProjects(org.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
+  async function selectProject(p) {
+    setProject(p);
+    setProjectTab("Queues");
+    setOpenQueue(null);
+    setError("");
+    try {
+      const [qs, rps] = await Promise.all([api.listQueues(p.id), api.listRetryPolicies(p.id)]);
+      setQueues(qs);
+      setRetryPolicies(rps);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function refreshQueues() {
+    setError("");
+    try {
+      setQueues(await api.listQueues(project.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function refreshRetryPolicies() {
+    setError("");
+    try {
+      setRetryPolicies(await api.listRetryPolicies(project.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // --- breadcrumb-driven views ---
+  if (!org) {
+    return (
+      <div>
+        <div className="content-header"><h2>Organizations</h2></div>
         <form className="card inline-form" onSubmit={createOrg}>
-          <input
-            placeholder="New organization name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <button className="btn-primary" type="submit">
-            Create
-          </button>
+          <input placeholder="New organization name" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+          <button className="btn-primary" type="submit">Create</button>
         </form>
-
         {error && <div className="error">{error}</div>}
-
-        {loading ? (
-          <p className="muted">Loading…</p>
-        ) : orgs.length === 0 ? (
-          <p className="muted">No organizations yet — create one above.</p>
+        {orgs.length === 0 ? (
+          <p className="muted">No organizations yet - create one above.</p>
         ) : (
           <ul className="org-list">
             {orgs.map((o) => (
               <li key={o.id} className="card org-row">
                 <span className="org-name">{o.name}</span>
-                <span className="muted">{new Date(o.created_at).toLocaleDateString()}</span>
+                <button className="link" onClick={() => selectOrg(o)}>Open</button>
               </li>
             ))}
           </ul>
         )}
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div>
+        <div className="content-header">
+          <div>
+            <button className="link" onClick={() => setOrg(null)}>&larr; Organizations</button>
+            <h2 style={{ margin: "6px 0 0" }}>{org.name}</h2>
+          </div>
+        </div>
+        <form className="card inline-form" onSubmit={createProject}>
+          <input placeholder="New project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
+          <button className="btn-primary" type="submit">Create</button>
+        </form>
+        {error && <div className="error">{error}</div>}
+        {projects.length === 0 ? (
+          <p className="muted">No projects yet - create one above.</p>
+        ) : (
+          <ul className="org-list">
+            {projects.map((p) => (
+              <li key={p.id} className="card org-row">
+                <span className="org-name">{p.name}</span>
+                <button className="link" onClick={() => selectProject(p)}>Open</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  if (openQueue) {
+    return (
+      <QueueDetail
+        queue={openQueue}
+        retryPolicies={retryPolicies}
+        onBack={() => setOpenQueue(null)}
+        onChanged={(updated) => {
+          setOpenQueue(updated);
+          refreshQueues();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div className="content-header">
+        <div>
+          <button className="link" onClick={() => setProject(null)}>&larr; {org.name}</button>
+          <h2 style={{ margin: "6px 0 0" }}>{project.name}</h2>
+        </div>
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      <div className="tabs">
+        {["Queues", "Retry policies"].map((t) => (
+          <button key={t} className={`tab ${projectTab === t ? "tab-active" : ""}`} onClick={() => setProjectTab(t)}>{t}</button>
+        ))}
+      </div>
+
+      {projectTab === "Queues" && (
+        <Queues
+          projectId={project.id}
+          queues={queues}
+          retryPolicies={retryPolicies}
+          refresh={refreshQueues}
+          onOpen={setOpenQueue}
+        />
+      )}
+      {projectTab === "Retry policies" && (
+        <RetryPolicies projectId={project.id} policies={retryPolicies} refresh={refreshRetryPolicies} />
+      )}
+    </div>
+  );
+}
+
+const NAV = [
+  { id: "overview", label: "Overview", icon: IconChart },
+  { id: "organizations", label: "Organizations", icon: IconFolder },
+  { id: "workers", label: "Workers", icon: IconServer },
+  { id: "settings", label: "Settings", icon: IconSettings },
+];
+
+function Dashboard({ onLogout }) {
+  const [tab, setTab] = useState("overview");
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <span className="brand-mark"><IconBolt size={18} /></span>
+          <span className="brand">Job Scheduler</span>
+        </div>
+        <nav className="sidenav">
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              className={`sidenav-item ${tab === n.id ? "sidenav-active" : ""}`}
+              onClick={() => setTab(n.id)}
+            >
+              <span className="sidenav-icon"><n.icon size={16} /></span>{n.label}
+            </button>
+          ))}
+        </nav>
+        <button type="button" className="link sidebar-signout" onClick={onLogout}>Sign out</button>
+        <div className="sidebar-footer muted">Distributed Job Scheduler</div>
+      </aside>
+
+      <main className="content">
+        {tab === "overview" && <Overview />}
+        {tab === "organizations" && <OrgsBrowser />}
+        {tab === "workers" && <Workers />}
+        {tab === "settings" && <Settings />}
       </main>
     </div>
   );
@@ -148,6 +258,10 @@ function Dashboard({ onLogout }) {
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(api.isLoggedIn());
 
+  useEffect(() => {
+    applyTheme(getSettings().theme);
+  }, []);
+
   function handleLogout() {
     api.logout().finally(() => setLoggedIn(false));
   }
@@ -155,6 +269,6 @@ export default function App() {
   return loggedIn ? (
     <Dashboard onLogout={handleLogout} />
   ) : (
-    <AuthForm onAuthed={() => setLoggedIn(true)} />
+    <AuthScreen onAuthed={() => setLoggedIn(true)} />
   );
 }
