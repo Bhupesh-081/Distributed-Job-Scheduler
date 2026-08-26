@@ -14,7 +14,7 @@ import (
 )
 
 // ScheduledJob is a recurring-job (cron) definition. watcher-service
-// expands it into an ordinary Job on each firing — it's never itself
+// expands it into an ordinary Job on each firing; it's never itself
 // dispatched or executed.
 type ScheduledJob struct {
 	ID             uuid.UUID
@@ -140,22 +140,15 @@ func (s *Store) DeleteScheduledJob(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// ExpandDueScheduledJobs finds active cron definitions due to fire, and for
-// each: spawns a new, ordinary `jobs` row (status='queued',
-// scheduled_type='immediate', scheduled_time=now(), scheduled_job_id set
-// to trace it back) and advances next_run_at — all in one transaction per
-// batch, so a crash between the two can't happen. The spawned job then
-// flows through the exact same dispatch/claim/execute/retry/DLQ pipeline
-// as any other job; nothing downstream needs to know it came from a cron
-// definition.
+// ExpandDueScheduledJobs finds active cron definitions due to fire, and
+// for each spawns a new, ordinary `jobs` row and advances next_run_at, both
+// in one transaction per batch so a crash between the two can't happen.
+// The spawned job flows through the normal dispatch/claim/execute/retry
+// pipeline unchanged; nothing downstream needs to know it came from cron.
 //
-// ponytail: a cron expression is validated at create/update time, so
-// Next() failing here should never happen in practice. If it somehow does,
-// the whole batch's transaction is rolled back (nothing spawned, nothing
-// advanced) rather than silently skipping just that row — simpler to
-// reason about, and the failing definition will surface the same error
-// again next tick until someone fixes it, rather than being silently
-// skipped forever.
+// ponytail: cron expressions are validated at create/update time, so
+// Next() failing here should never happen. If it somehow does, the whole
+// batch is rolled back rather than silently skipping just that row.
 func (s *Store) ExpandDueScheduledJobs(ctx context.Context, limit int) ([]uuid.UUID, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

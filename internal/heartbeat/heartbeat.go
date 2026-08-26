@@ -2,12 +2,7 @@
 // single "watcher:last_poll" key, refreshed every poll tick, read by
 // cmd/api's health endpoint. Separate from the Postgres-backed
 // workers/worker_heartbeats tables (see internal/store), which track
-// consumer-service instances, not watcher-service itself — watcher-service
-// runs as a single instance today (no leader election, see
-// docs/design-decisions.md), so Postgres round-trip cost for its own
-// liveness isn't worth it; Redis is already the fast-path signal for
-// exactly this kind of disposable liveness data in this codebase (see
-// internal/cancel).
+// consumer-service instances, not watcher-service itself.
 package heartbeat
 
 import (

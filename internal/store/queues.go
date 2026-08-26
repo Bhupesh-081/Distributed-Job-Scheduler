@@ -80,7 +80,7 @@ func (s *Store) ListQueuesForProject(ctx context.Context, projectID uuid.UUID, l
 }
 
 // UpdateQueueConfig updates the mutable queue settings (name, priority,
-// concurrency_limit, default_retry_policy_id — nil clears it). Pause/resume
+// concurrency_limit, default_retry_policy_id; nil clears it). Pause/resume
 // go through SetQueuePaused instead, since those are a single-field toggle
 // callers hit without knowing the rest.
 func (s *Store) UpdateQueueConfig(ctx context.Context, id uuid.UUID, name string, priority, concurrencyLimit int, defaultRetryPolicyID *uuid.UUID) (Queue, error) {

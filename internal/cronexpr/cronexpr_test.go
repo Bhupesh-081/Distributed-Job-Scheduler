@@ -15,7 +15,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestNext(t *testing.T) {
-	// "0 * * * *" — top of every hour.
+	// "0 * * * *": top of every hour.
 	after := time.Date(2026, 1, 1, 10, 15, 0, 0, time.UTC)
 	got, err := Next("0 * * * *", after)
 	if err != nil {

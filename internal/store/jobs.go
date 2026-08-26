@@ -28,7 +28,7 @@ type Job struct {
 	// ScheduledJobID traces this job back to the cron definition that
 	// spawned it (nil for immediate/delayed/scheduled jobs and any job
 	// created before scheduled_jobs existed). Only ExpandDueScheduledJobs
-	// sets it — not exposed on NewJob, since a caller creating a job
+	// sets it; not exposed on NewJob, since a caller creating a job
 	// directly can't claim to be a cron firing.
 	ScheduledJobID *uuid.UUID
 }
@@ -127,6 +127,31 @@ func (s *Store) ListJobs(ctx context.Context, status string, queueID *uuid.UUID,
 		 WHERE ($1 = '' OR status = $1) AND ($2::uuid IS NULL OR queue_id = $2)
 		 ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
 		status, queueID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []Job
+	for rows.Next() {
+		j, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
+}
+
+// ListJobsModifiedSince backs the /jobs/stream WebSocket: whatever changed
+// in this queue since the caller's last poll (oldest-first, so a client
+// applying them in order never sees a stale status overwrite a newer one).
+func (s *Store) ListJobsModifiedSince(ctx context.Context, queueID uuid.UUID, since time.Time) ([]Job, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT `+jobCols+` FROM jobs
+		 WHERE queue_id = $1 AND modified_time > $2
+		 ORDER BY modified_time ASC LIMIT 200`,
+		queueID, since)
 	if err != nil {
 		return nil, err
 	}

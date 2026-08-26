@@ -27,20 +27,15 @@ import (
 	"distributed-job-scheduler/internal/store"
 )
 
-// retryDelay is the fallback for a job with no retry policy resolvable
-// (unscoped job, or a queue with no default_retry_policy_id) — see
-// store.EffectiveRetryPolicy, which normally supplies the real delay.
+// retryDelay is the fallback when store.EffectiveRetryPolicy finds no
+// policy (unscoped job, or a queue with no default_retry_policy_id).
 const retryDelay = 5 * time.Second
 
-// How often a running job's execution is checked against the Redis cancel
-// flag, and its jobs.modified_time touched to prove this worker is still
-// alive (see TouchRunningJob). Coarse on purpose — cancellation is
-// best-effort, not a hard SLA — but well under watcher-service's 30s stale
-// threshold so a healthy job in a long payload never looks abandoned.
+// cancelPollInterval also drives TouchRunningJob's liveness touch, well
+// under watcher-service's 30s stale threshold so a healthy job in a long
+// payload never looks abandoned.
 const cancelPollInterval = 2 * time.Second
 
-// How often this worker records a liveness heartbeat. watcher-service reaps
-// workers whose last heartbeat goes stale (see its own threshold).
 const heartbeatInterval = 10 * time.Second
 
 func main() {
@@ -132,8 +127,6 @@ type worker struct {
 	inFlight atomic.Int32
 }
 
-// heartbeatLoop records this worker's liveness + current in-flight job
-// count until ctx is cancelled.
 func (w *worker) heartbeatLoop(ctx context.Context) {
 	ticker := time.NewTicker(heartbeatInterval)
 	defer ticker.Stop()
@@ -184,9 +177,8 @@ fetchLoop:
 	inFlight.Wait()
 }
 
-// handle claims, runs, and records the outcome of one job. Errors are
-// logged, never fatal to the worker — a bad job shouldn't take down the
-// consumer loop.
+// handle logs errors but never returns one: a bad job shouldn't take down
+// the consumer loop.
 func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 	log := slog.With("job_id", jobID, "topic", topic)
 
@@ -220,12 +212,8 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 			case <-execCtx.Done():
 				return
 			case <-ticker.C:
-				// Refreshes jobs.modified_time so watcher-service's
-				// RecoverStuckRunningJobs knows this job is still being
-				// actively worked on, not abandoned by a dead worker —
-				// without this, any payload that legitimately runs longer
-				// than the stale threshold would get wrongly re-executed
-				// out from under this still-alive worker.
+				// Proves to RecoverStuckRunningJobs that this job is still
+				// being worked on, not abandoned by a dead worker.
 				if err := w.store.TouchRunningJob(context.Background(), jobID); err != nil {
 					log.Error("touch running job", "error", err)
 				}
@@ -311,8 +299,7 @@ func (w *worker) handle(ctx context.Context, topic string, jobID uuid.UUID) {
 	})
 }
 
-// jobLog persists a job_logs row, logging (not failing the caller) on error
-// — a lost log line shouldn't affect job execution.
+// jobLog only logs on error; a lost log line shouldn't affect job execution.
 func (w *worker) jobLog(ctx context.Context, log *slog.Logger, jobID uuid.UUID, runID *uuid.UUID, level, message string) {
 	if _, err := w.store.CreateJobLog(ctx, jobID, runID, level, message); err != nil {
 		log.Error("write job log", "error", err)

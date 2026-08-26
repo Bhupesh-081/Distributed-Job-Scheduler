@@ -1,5 +1,5 @@
 // Package kafka is a thin wrapper around segmentio/kafka-go for the job
-// pipeline. Messages carry only a job ID — Kafka is a transport/trigger,
+// pipeline. Messages carry only a job ID; Kafka is a transport/trigger,
 // never the source of truth for job state (see docs/design-decisions.md
 // "Kafka as transport, not authority"). Every service reads the actual job
 // row from Postgres before acting on a message.
@@ -66,7 +66,7 @@ func NewConsumer(brokers []string, topic, groupID string) *Consumer {
 		// A consumer that joins its group before the topic exists (e.g.
 		// this service starting before the first job is ever published)
 		// gets assigned zero partitions and, without this, stays stuck
-		// there forever — kafka-go doesn't rejoin on its own when the
+		// there forever: kafka-go doesn't rejoin on its own when the
 		// topic shows up later. This makes it notice and rejoin.
 		WatchPartitionChanges: true,
 	})}

@@ -64,20 +64,15 @@ type RecoveredRun struct {
 }
 
 // RecoverStuckRunningJobs finds jobs stuck in status='running' whose worker
-// presumably crashed (no progress in staleAfter) — the gap RecoverStuckJobs
-// doesn't cover, since that one only ever matches status='queued'.
-// "No progress" means jobs.modified_time, which consumer-service refreshes
-// every 2s while a job actively executes (TouchRunningJob) — this is what
-// keeps a long-running-but-healthy job from being mistaken for a crashed
-// one; without that periodic touch, modified_time would be frozen at claim
-// time and any payload running longer than staleAfter would look
-// identical to an abandoned job. A crash is treated exactly like a genuine
-// execution failure: the orphaned job_runs row is closed out and
-// retryOrDeadLetter's usual queued-vs-dead decision applies, so a payload
-// that reliably kills its worker (OOM, etc.) still dead-letters eventually
-// instead of retrying forever. On requeue, dispatched_at is cleared so
-// this same watcher-service tick's DispatchDueJobs picks it back up
-// immediately, same pattern as ExpandDueScheduledJobs.
+// presumably crashed (no progress in staleAfter), the gap RecoverStuckJobs
+// doesn't cover since that one only ever matches status='queued'.
+// "No progress" means jobs.modified_time, which TouchRunningJob refreshes
+// every 2s while a job actively executes; without that, any long-running
+// but healthy payload would look identical to an abandoned one. A crash is
+// treated like a genuine execution failure via retryOrDeadLetter, so a
+// payload that reliably kills its worker still dead-letters eventually
+// instead of retrying forever. On requeue, dispatched_at is cleared so the
+// same tick's DispatchDueJobs picks it back up immediately.
 func (s *Store) RecoverStuckRunningJobs(ctx context.Context, staleAfter time.Duration, limit int) ([]RecoveredRun, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

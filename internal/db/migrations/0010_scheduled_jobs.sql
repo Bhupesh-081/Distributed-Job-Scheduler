@@ -1,8 +1,8 @@
--- Recurring (cron) job definitions — the one core requirement left off the
+-- Recurring (cron) job definitions - the one core requirement left off the
 -- MVP bootstrap ledger. A scheduled_jobs row is a template that
 -- watcher-service expands into an ordinary `jobs` row on each firing;
 -- everything downstream (dispatch, claim, execute, retry, DLQ, logs)
--- reuses the existing pipeline unchanged — a scheduled_jobs row itself is
+-- reuses the existing pipeline unchanged - a scheduled_jobs row itself is
 -- never dispatched or executed.
 CREATE TABLE IF NOT EXISTS scheduled_jobs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

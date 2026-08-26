@@ -61,7 +61,7 @@ func TestExpandDueScheduledJobs(t *testing.T) {
 	// limit=100 and the shared, non-isolated dev DB can have other due
 	// scheduled_jobs left over from earlier runs (see testQueue's comment),
 	// so this looks for the job traced back to `due` among everything that
-	// fired, rather than asserting an exact spawned count — same reasoning
+	// fired, rather than asserting an exact spawned count, same reasoning
 	// TestDispatchDueJobs/TestRecoverStuckJobs already use.
 	spawned, err := s.ExpandDueScheduledJobs(ctx, 100)
 	if err != nil {

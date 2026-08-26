@@ -10,7 +10,7 @@ import (
 )
 
 // JobServer is the job-service API: auth-gated like cmd/api (shares its
-// JWT secret/issuer), scoped by queue ownership — see requireQueueAccess.
+// JWT secret/issuer), scoped by queue ownership (see requireQueueAccess).
 type JobServer struct {
 	store  *store.Store
 	tokens authsvc.TokenIssuer
@@ -32,6 +32,7 @@ func (s *JobServer) routes() {
 	s.mux.HandleFunc("POST /jobs", s.requireAuth(s.handleCreateJob))
 	s.mux.HandleFunc("POST /jobs/batch", s.requireAuth(s.handleCreateJobsBatch))
 	s.mux.HandleFunc("GET /jobs", s.requireAuth(s.handleListJobs))
+	s.mux.HandleFunc("GET /jobs/stream", s.handleJobsStream) // auth handled inside: token is a query param, not a header (see jobs_stream.go)
 	s.mux.HandleFunc("GET /jobs/{id}", s.requireAuth(s.handleGetJob))
 	s.mux.HandleFunc("GET /jobs/{id}/logs", s.requireAuth(s.handleGetJobLogs))
 	s.mux.HandleFunc("POST /jobs/{id}/cancel", s.requireAuth(s.handleCancelJob))

@@ -7,8 +7,8 @@ import (
 	"distributed-job-scheduler/internal/store"
 )
 
-// Workers aren't project-scoped — the consumer-service pool is shared
-// infrastructure, not owned by one org — so these endpoints are visible to
+// Workers aren't project-scoped: the consumer-service pool is shared
+// infrastructure, not owned by one org, so these endpoints are visible to
 // any authenticated user rather than gated by org membership.
 
 type workerResponse struct {

@@ -1,6 +1,6 @@
 # API Design
 
-REST, JSON bodies, JWT bearer auth (except `/auth/*`). All list endpoints support `?page=&page_size=` (cursor or offset — TBD at implementation) plus relevant `?filter=` params. Errors return a consistent envelope: `{"error": {"code": "...", "message": "...", "details": {...}}}` with standard HTTP status codes.
+REST, JSON bodies, JWT bearer auth (except `/auth/*`). All list endpoints support `?page=&page_size=` (cursor or offset - TBD at implementation) plus relevant `?filter=` params. Errors return a consistent envelope: `{"error": {"code": "...", "message": "...", "details": {...}}}` with standard HTTP status codes.
 
 ## Auth
 | Method | Path | Notes |
@@ -34,7 +34,7 @@ REST, JSON bodies, JWT bearer auth (except `/auth/*`). All list endpoints suppor
 | GET/PATCH/DELETE | `/retry-policies/:id` | A job's `retry_policy_id` overrides its queue's `default_retry_policy_id`; neither set falls back to a fixed 5s delay |
 
 ## Jobs
-Served by job-service (separate binary from `cmd/api`, sharing its JWT secret — a token from `/auth/login` works on both). Every route requires `Authorization: Bearer` and is scoped by the target job's `queue_id` → the caller's org membership; a job/queue outside the caller's orgs 403s (or 404s for a legacy pre-auth job with no `queue_id` at all).
+Served by job-service (separate binary from `cmd/api`, sharing its JWT secret - a token from `/auth/login` works on both). Every route requires `Authorization: Bearer` and is scoped by the target job's `queue_id` → the caller's org membership; a job/queue outside the caller's orgs 403s (or 404s for a legacy pre-auth job with no `queue_id` at all).
 | Method | Path | Notes |
 |---|---|---|
 | POST | `/jobs` | `scheduled_type`: immediate/delayed/scheduled; `queue_id` required, `retry_policy_id` optional override |
@@ -45,7 +45,7 @@ Served by job-service (separate binary from `cmd/api`, sharing its JWT secret �
 | POST | `/jobs/:jobId/cancel` | Cancels outright if still queued; else sets a Redis flag consumer-service polls mid-execution |
 
 ## Recurring jobs
-Served by `cmd/api` (authenticated, scoped via the queue's org — same as queues/retry-policies), on `internal/cronexpr` (standard 5-field cron, e.g. `*/5 * * * *`). A `scheduled_jobs` row is a template, never itself run — watcher-service expands due ones into ordinary jobs (`GET /jobs/{id}.scheduled_job_id` traces a job back to its definition).
+Served by `cmd/api` (authenticated, scoped via the queue's org - same as queues/retry-policies), on `internal/cronexpr` (standard 5-field cron, e.g. `*/5 * * * *`). A `scheduled_jobs` row is a template, never itself run - watcher-service expands due ones into ordinary jobs (`GET /jobs/{id}.scheduled_job_id` traces a job back to its definition).
 | Method | Path | Notes |
 |---|---|---|
 | GET/POST | `/queues/:queueId/scheduled-jobs` | `cron_expression` + `payload` template, optional `retries_max`/`retry_policy_id` |
@@ -55,7 +55,7 @@ Served by `cmd/api` (authenticated, scoped via the queue's org — same as queue
 ## Workers
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/workers` | `?status=active\|stopped`. Not project-scoped — shared infra, any authenticated user |
+| GET | `/workers` | `?status=active\|stopped`. Not project-scoped - shared infra, any authenticated user |
 | GET | `/workers/:id` | Detail + last 20 heartbeats (in_flight_count over time) |
 
 ## Dead Letter Queue
@@ -69,7 +69,7 @@ Served by `cmd/api` (authenticated, scoped via the queue's org — same as queue
 ## System
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/system/health` | `cmd/api`'s own liveness, plus `watcher_service: {alive, last_poll_at, seconds_since_last_poll}` read from its Redis heartbeat (dead if unset or >30s stale). job-service has its own `/system/health` too (liveness only, no watcher status) — Caddy's default route sends `/system/health` to `cmd/api`. |
-| GET | `/system/metrics` | Aggregate throughput/health for dashboard overview — **not implemented yet** |
+| GET | `/system/health` | `cmd/api`'s own liveness, plus `watcher_service: {alive, last_poll_at, seconds_since_last_poll}` read from its Redis heartbeat (dead if unset or >30s stale). job-service has its own `/system/health` too (liveness only, no watcher status) - Caddy's default route sends `/system/health` to `cmd/api`. |
+| GET | `/system/metrics` | Aggregate throughput/health for dashboard overview - **not implemented yet** |
 
 Full OpenAPI spec to be generated from the Go handler annotations once implementation starts, rather than hand-maintained separately.

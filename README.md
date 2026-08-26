@@ -1,6 +1,6 @@
 # Distributed Job Scheduler
 
-> **A note for evaluators** — thank you for taking the time to review this
+> **A note for evaluators** - thank you for taking the time to review this
 > project. Every piece below (architecture, schema, API surface, and the
 > trade-offs behind them) is documented, live-verified, and tied back to a
 > commit. Jump to whichever deliverable is most useful, or start with the
@@ -60,7 +60,7 @@ erDiagram
 
 REST + JSON over HTTPS, JWT bearer auth on everything except `/auth/*`.
 Full endpoint-by-endpoint reference (params, scoping rules, status codes)
-is in [`docs/api-design.md`](docs/api-design.md) — grouped summary:
+is in [`docs/api-design.md`](docs/api-design.md) - grouped summary:
 
 | Group | Endpoints | Notes |
 |---|---|---|
@@ -88,7 +88,7 @@ code they cover:
 | `internal/heartbeat` | Worker heartbeat writes and staleness detection |
 | `internal/httpapi` | Job handler request/response contracts |
 | `internal/kafka` | Producer/consumer wiring for the run/retry/dead topics |
-| `internal/store` (dispatch) | Atomic job claiming — no duplicate execution under concurrency |
+| `internal/store` (dispatch) | Atomic job claiming - no duplicate execution under concurrency |
 | `internal/store` (job_logs, job_runs) | Log/attempt history writes |
 | `internal/store` (retry_policies_delay) | Fixed/linear/exponential delay math |
 | `internal/store` (scheduled_jobs) | Cron definition CRUD and due-job expansion |

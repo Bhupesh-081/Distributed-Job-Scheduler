@@ -1,6 +1,6 @@
 // Package cronexpr parses standard 5-field cron expressions (minute hour
 // day-of-month month day-of-week, e.g. "*/5 * * * *") and computes the next
-// occurrence after a given time — the only two operations scheduled_jobs
+// occurrence after a given time, the only two operations scheduled_jobs
 // needs from a cron library, so this wraps robfig/cron/v3's parser rather
 // than pulling in its scheduler (watcher-service already has its own tick
 // loop).

@@ -83,6 +83,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("DELETE /dlq/{dlqId}", s.requireAuth(s.handleDeleteDLQEntry))
 
 	s.mux.HandleFunc("GET /system/health", s.handleHealth)
+	s.mux.HandleFunc("GET /system/metrics", s.requireAuth(s.handleSystemMetrics))
 }
 
 type healthResponse struct {

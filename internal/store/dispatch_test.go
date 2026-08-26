@@ -99,7 +99,7 @@ func TestRecoverStuckJobs(t *testing.T) {
 }
 
 // claimAndRun creates, dispatches, and claims a job, then creates its
-// job_runs row — i.e. everything a real worker does up to (not including)
+// job_runs row: everything a real worker does up to (not including)
 // actually executing the payload, the point at which a crash leaves a job
 // stuck 'running'.
 func claimAndRun(t *testing.T, s *Store, retriesMax int) Job {

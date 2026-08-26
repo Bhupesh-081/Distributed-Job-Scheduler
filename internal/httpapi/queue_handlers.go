@@ -48,7 +48,7 @@ func (s *Server) requireQueueMember(w http.ResponseWriter, r *http.Request, queu
 }
 
 // requireQueueAccess is the shared implementation behind requireQueueMember
-// on both Server (cmd/api) and JobServer (job-service) — job-service has no
+// on both Server (cmd/api) and JobServer (job-service); job-service has no
 // Server of its own but needs the same org-membership check on the queue a
 // job belongs to.
 func requireQueueAccess(w http.ResponseWriter, r *http.Request, st *store.Store, queueID uuid.UUID) (store.Queue, bool) {

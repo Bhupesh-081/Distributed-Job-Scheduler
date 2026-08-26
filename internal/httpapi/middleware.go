@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -26,7 +29,7 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return requireAuthWith(s.tokens, next)
 }
 
-// requireAuth is JobServer's counterpart to Server.requireAuth — job-service
+// requireAuth is JobServer's counterpart to Server.requireAuth. job-service
 // is a separate binary/mux but shares the same JWT secret/issuer, so a
 // token from cmd/api's /auth/login works here too.
 func (s *JobServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -89,4 +92,15 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack forwards to the underlying ResponseWriter so /jobs/stream's
+// WebSocket upgrade (which needs to take over the raw connection) still
+// works wrapped in this logging middleware.
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying ResponseWriter does not support hijacking")
+	}
+	return hj.Hijack()
 }

@@ -68,7 +68,7 @@ func (s *Store) ListDLQForQueue(ctx context.Context, queueID uuid.UUID, limit, o
 }
 
 // ReplayDLQEntry re-queues the original job (status='queued', retries_count
-// reset, re-dispatched immediately) and removes the DLQ entry — a
+// reset, re-dispatched immediately) and removes the DLQ entry; a
 // successful replay's audit trail is the job's own job_runs/job_logs
 // history from here on. Returns the job's ID.
 func (s *Store) ReplayDLQEntry(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {

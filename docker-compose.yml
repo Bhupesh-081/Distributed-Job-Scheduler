@@ -15,7 +15,7 @@ services:
     ports:
       - "6379:6379"
 
-  # Single-node Kafka in KRaft mode (no Zookeeper — Zookeeper is deprecated
+  # Single-node Kafka in KRaft mode (no Zookeeper - Zookeeper is deprecated
   # upstream as of Kafka 3.x/4.0, and one fewer container to run for a local
   # single-broker setup). Two listeners: PLAINTEXT_HOST for bare-metal
   # services (go run, outside compose) connecting via localhost:9092,

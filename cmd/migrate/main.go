@@ -1,5 +1,5 @@
 // Command migrate applies the Postgres schema (internal/db.Migrate)
-// standalone, without booting a full service — used by `make migrate` and
+// standalone, without booting a full service; used by `make migrate` and
 // by checkpoints that need the schema present before any service runs.
 package main
 

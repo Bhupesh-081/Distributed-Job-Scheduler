@@ -25,7 +25,7 @@ type createJobRequest struct {
 }
 
 // validatePayload is shared between job creation and scheduled-job
-// (cron template) creation — both need a non-empty, valid-JSON payload.
+// (cron template) creation; both need a non-empty, valid-JSON payload.
 func validatePayload(payload json.RawMessage) error {
 	if len(payload) == 0 || string(payload) == "null" {
 		return fmt.Errorf("payload is required")
@@ -265,7 +265,7 @@ func (s *JobServer) handleListJobs(w http.ResponseWriter, r *http.Request) {
 // requireJobAccess loads a job and confirms the caller has access to its
 // queue. A job with no queue_id (an unscoped legacy job, predating
 // queue-scoped auth) has no owning org, so it 404s rather than being
-// exposed to any authenticated user — same call as DLQ entries.
+// exposed to any authenticated user, same call as DLQ entries.
 func requireJobAccess(w http.ResponseWriter, r *http.Request, st *store.Store, id uuid.UUID) (store.Job, bool) {
 	job, err := st.GetJob(r.Context(), id)
 	if err != nil {

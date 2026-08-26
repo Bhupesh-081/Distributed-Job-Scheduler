@@ -1,8 +1,9 @@
 // Package cancel is the shared "cancel:{jobID}" Redis key convention
 // between job-service (writer, on POST /jobs/{id}/cancel) and
 // consumer-service (reader, polled during execution). Redis is a fast-path
-// signal only — Postgres jobs.status is still the source of truth; losing
-// this key just means a running job finishes instead of aborting early.
+// signal only: Postgres jobs.status is still the source of truth, so
+// losing this key just means a running job finishes instead of aborting
+// early.
 package cancel
 
 import (

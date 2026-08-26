@@ -1,8 +1,6 @@
 // Command job-service exposes the REST API for creating and listing jobs
-// (see docs/architecture.md). Auth-gated like cmd/api — see "Auth on
-// job-service routes" in docs/design-decisions.md's MVP bootstrap ledger —
-// sharing the same JWT secret so a token from cmd/api's /auth/login works
-// here too.
+// (see docs/architecture.md). Auth-gated like cmd/api, sharing the same
+// JWT secret so a token from cmd/api's /auth/login works here too.
 package main
 
 import (
@@ -41,7 +39,7 @@ func run() error {
 		return fmt.Errorf("JWT_SECRET is required and must be at least 32 characters")
 	}
 	// job-service only validates tokens (never issues them), so the TTL
-	// argument here is inert — it only affects GenerateAccessToken.
+	// argument here is inert; it only affects GenerateAccessToken.
 	tokens := authsvc.NewTokenIssuer(jwtSecret, 0)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

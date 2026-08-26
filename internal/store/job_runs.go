@@ -26,9 +26,9 @@ type JobRun struct {
 // retried claim) safe: only the first caller sees a row come back.
 //
 // If the job belongs to a queue, the claim is also blocked while the queue
-// is paused or already at its concurrency_limit — the job stays 'queued'
+// is paused or already at its concurrency_limit. The job stays 'queued'
 // with dispatched_at still set, so watcher-service's stuck-job recovery
-// picks it up again once a slot frees (see RecoverStuckJobs), no separate
+// picks it up again once a slot frees (see RecoverStuckJobs); no separate
 // backoff/retry path needed here.
 func (s *Store) ClaimJob(ctx context.Context, id uuid.UUID) (Job, bool, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -95,13 +95,10 @@ func (s *Store) CreateJobRun(ctx context.Context, jobID uuid.UUID, attemptNumber
 	return r, err
 }
 
-// TouchRunningJob refreshes a running job's modified_time — called
-// periodically by consumer-service while a job is actively executing, so
+// TouchRunningJob refreshes a running job's modified_time, called
+// periodically by consumer-service while a job executes so
 // RecoverStuckRunningJobs can tell "still being worked on" apart from "the
-// worker that claimed this is gone." Without a periodic touch, any job
-// whose payload legitimately runs longer than the stale threshold would
-// look identical to a crashed one and get wrongly re-executed out from
-// under its still-alive worker.
+// worker that claimed this is gone."
 func (s *Store) TouchRunningJob(ctx context.Context, id uuid.UUID) error {
 	_, err := s.pool.Exec(ctx, `UPDATE jobs SET modified_time = now() WHERE id = $1 AND status = 'running'`, id)
 	return err
@@ -116,7 +113,7 @@ func (s *Store) FinishJobRun(ctx context.Context, runID uuid.UUID, status string
 }
 
 // CancelQueuedJob cancels a job that hasn't been claimed yet. Returns false
-// if the job wasn't queued (already claimed/running, or already finished) —
+// if the job wasn't queued (already claimed/running, or already finished);
 // the caller falls back to a Redis cancel signal for the running case.
 func (s *Store) CancelQueuedJob(ctx context.Context, id uuid.UUID) (bool, error) {
 	tag, err := s.pool.Exec(ctx,
@@ -145,11 +142,9 @@ func (s *Store) RetryOrDeadLetter(ctx context.Context, id uuid.UUID) (retriesCou
 	return retryOrDeadLetter(ctx, s.pool, id)
 }
 
-// retryOrDeadLetter is the shared implementation behind RetryOrDeadLetter
-// (called directly against the pool by consumer-service after a genuine
-// execution failure) and RecoverStuckRunningJobs (called against a
-// transaction, since it's one step of a larger atomic recovery) — both
-// need the exact same queued-vs-dead decision, so it lives in one place.
+// retryOrDeadLetter backs both RetryOrDeadLetter (against the pool, from
+// consumer-service) and RecoverStuckRunningJobs (against a transaction);
+// both need the exact same queued-vs-dead decision.
 func retryOrDeadLetter(ctx context.Context, q querier, id uuid.UUID) (retriesCount, retriesMax int, dead bool, err error) {
 	var status string
 	err = q.QueryRow(ctx,

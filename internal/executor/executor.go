@@ -1,6 +1,6 @@
 // Package executor runs a job's payload. MVP payload type is a shell
 // command: {"cmd": "...", "args": [...], "timeout_seconds": N}. Args are
-// passed straight to exec.Command as a slice — never through a shell — so a
+// passed straight to exec.Command as a slice, never through a shell, so a
 // malicious payload can't break out via shell metacharacters; it can still
 // run whatever binary "cmd" names, which is the tradeoff the user chose for
 // this job type over a safer sandboxed one.

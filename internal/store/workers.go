@@ -65,7 +65,7 @@ func (s *Store) MarkWorkerStopped(ctx context.Context, id uuid.UUID) error {
 }
 
 // ReapStaleWorkers marks workers 'stopped' whose last heartbeat is older
-// than staleAfter — catches a crashed process that never got to run its
+// than staleAfter, catching a crashed process that never got to run its
 // graceful-shutdown MarkWorkerStopped call. Mirrors RecoverStuckJobs: called
 // from watcher-service's existing poll tick, no separate reaper needed.
 func (s *Store) ReapStaleWorkers(ctx context.Context, staleAfter time.Duration, limit int) ([]uuid.UUID, error) {
