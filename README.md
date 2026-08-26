@@ -12,10 +12,10 @@
 |---|---|
 | Source code + setup instructions | This README (below) |
 | Architecture diagram | [Architecture](#architecture) below, full write-up in [`docs/architecture.md`](docs/architecture.md) |
-| ER diagram | Pending — see [`docs/database-schema.md`](docs/database-schema.md) for the schema it will diagram |
-| API documentation | [`docs/api-design.md`](docs/api-design.md) |
+| ER diagram | [ER diagram](#er-diagram) below, full schema notes in [`docs/database-schema.md`](docs/database-schema.md) |
+| API documentation | [API Documentation](#api-documentation) below, full reference in [`docs/api-design.md`](docs/api-design.md) |
 | Design decisions | [`docs/design-decisions.md`](docs/design-decisions.md) |
-| Automated tests | `go test ./...` (see [Build / test](#build--test)); test files live next to the code they cover (`internal/*/*_test.go`) |
+| Automated tests | [Automated Tests](#automated-tests) below, run with `go test ./...` |
 
 ## Architecture
 
@@ -26,6 +26,72 @@ retry policies, jobs, workers, execution logs, a dead letter queue, and
 recurring (cron) jobs. See `docs/` for the full architecture and
 `docs/design-decisions.md`'s "MVP bootstrap ledger" for what's
 implemented and how it was verified.
+
+## ER diagram
+
+As-migrated schema (`internal/db/migrations/0001`–`0010`), grep-checked
+against `internal/store/*.go`; full column list and every FK/index/cascade
+justification in [`docs/database-schema.md`](docs/database-schema.md).
+
+```mermaid
+erDiagram
+    USERS ||--o{ ORG_MEMBERS : "belongs to"
+    USERS ||--o{ REFRESH_TOKENS : has
+    ORGANIZATIONS ||--o{ ORG_MEMBERS : has
+    ORGANIZATIONS ||--o{ PROJECTS : owns
+    PROJECTS ||--o{ QUEUES : owns
+    PROJECTS ||--o{ RETRY_POLICIES : owns
+    QUEUES ||--o{ JOBS : contains
+    QUEUES }o--o| RETRY_POLICIES : "default (nullable)"
+    JOBS }o--o| RETRY_POLICIES : "override (nullable)"
+    JOBS ||--o{ JOB_RUNS : "attempts"
+    JOBS ||--o{ JOB_LOGS : emits
+    JOB_RUNS ||--o{ JOB_LOGS : "tags (nullable)"
+    JOBS ||--o{ DEAD_LETTER_QUEUE : "moved to (0+, replay creates more)"
+    QUEUES ||--o{ DEAD_LETTER_QUEUE : "snapshot (nullable)"
+    WORKERS ||--o{ JOB_RUNS : executes
+    WORKERS ||--o{ WORKER_HEARTBEATS : reports
+    QUEUES ||--o{ SCHEDULED_JOBS : "cron definitions for"
+    SCHEDULED_JOBS }o--o| RETRY_POLICIES : "default (nullable)"
+    SCHEDULED_JOBS ||--o{ JOBS : "spawns (0+, one per firing)"
+```
+
+## API documentation
+
+REST + JSON over HTTPS, JWT bearer auth on everything except `/auth/*`.
+Full endpoint-by-endpoint reference (params, scoping rules, status codes)
+is in [`docs/api-design.md`](docs/api-design.md) — grouped summary:
+
+| Group | Endpoints | Notes |
+|---|---|---|
+| Auth | `/auth/register`, `/auth/login`, `/auth/refresh` | Issues/rotates JWT + refresh token |
+| Organizations / Projects | `/organizations`, `/organizations/:id/members`, `/organizations/:id/projects`, `/projects/:id` | Org membership gates every route below |
+| Queues | `/projects/:id/queues`, `/queues/:id`, `/queues/:id/pause`\|`resume`, `/queues/:id/stats` | Priority, concurrency limit, pause/resume, stats |
+| Retry policies | `/projects/:id/retry-policies`, `/retry-policies/:id` | fixed / linear / exponential strategies |
+| Jobs (job-service) | `/jobs`, `/jobs/batch`, `/jobs/:id`, `/jobs/:id/logs`, `/jobs/:id/cancel` | immediate/delayed/scheduled, batch create, per-attempt logs, mid-run cancel |
+| Recurring jobs | `/queues/:id/scheduled-jobs`, `/scheduled-jobs/:id`, `/scheduled-jobs/:id/pause`\|`resume` | Standard 5-field cron; watcher-service expands due definitions into jobs |
+| Workers | `/workers`, `/workers/:id` | Status + last 20 heartbeats |
+| Dead Letter Queue | `/queues/:id/dlq`, `/dlq/:id`, `/dlq/:id/replay` | Append-only audit log; replay re-queues the original job |
+| System | `/system/health` | Liveness + watcher-service heartbeat staleness |
+
+## Automated tests
+
+`go test ./...` (see [Build / test](#build--test)). Tests live next to the
+code they cover:
+
+| Package | Covers |
+|---|---|
+| `internal/authsvc` | Password hashing, JWT issuance/validation, refresh token rotation |
+| `internal/cancel` | Redis-backed mid-execution cancel flag |
+| `internal/cronexpr` | 5-field cron expression parsing/next-run computation |
+| `internal/executor` | Job payload execution, timeouts, no shell interpolation |
+| `internal/heartbeat` | Worker heartbeat writes and staleness detection |
+| `internal/httpapi` | Job handler request/response contracts |
+| `internal/kafka` | Producer/consumer wiring for the run/retry/dead topics |
+| `internal/store` (dispatch) | Atomic job claiming — no duplicate execution under concurrency |
+| `internal/store` (job_logs, job_runs) | Log/attempt history writes |
+| `internal/store` (retry_policies_delay) | Fixed/linear/exponential delay math |
+| `internal/store` (scheduled_jobs) | Cron definition CRUD and due-job expansion |
 
 ## Run it
 
