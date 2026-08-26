@@ -19,6 +19,7 @@ import (
 	"distributed-job-scheduler/internal/config"
 	"distributed-job-scheduler/internal/db"
 	"distributed-job-scheduler/internal/httpapi"
+	"distributed-job-scheduler/internal/mailer"
 	"distributed-job-scheduler/internal/store"
 )
 
@@ -53,7 +54,14 @@ func run() error {
 
 	st := store.New(pool)
 	tokens := authsvc.NewTokenIssuer(cfg.JWTSecret, cfg.AccessTokenTTL)
-	server := httpapi.NewServer(st, tokens, cfg.RefreshTokenTTL, rdb)
+	mail := mailer.New(mailer.Config{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		From:     cfg.SMTPFrom,
+		User:     cfg.SMTPUser,
+		Password: cfg.SMTPPassword,
+	})
+	server := httpapi.NewServer(st, tokens, cfg.RefreshTokenTTL, rdb, mail)
 
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.Port,

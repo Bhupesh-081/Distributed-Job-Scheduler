@@ -53,6 +53,11 @@ services:
       DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       REDIS_ADDR: redis:6379
+      SMTP_HOST: ${SMTP_HOST:?set SMTP_HOST in .env - see .env.example for Gmail setup}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_FROM: ${SMTP_FROM:?set SMTP_FROM in .env}
+      SMTP_USER: ${SMTP_USER:?set SMTP_USER in .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?set SMTP_PASSWORD in .env}
     depends_on:
       - postgres
       - redis

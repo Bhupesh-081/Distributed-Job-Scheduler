@@ -11,6 +11,7 @@ aspirational design - every column/constraint below is grep-checked against
 erDiagram
     USERS ||--o{ ORG_MEMBERS : "belongs to"
     USERS ||--o{ REFRESH_TOKENS : has
+    USERS ||--o{ OTPS : "verify/reset codes (0+)"
     ORGANIZATIONS ||--o{ ORG_MEMBERS : has
     ORGANIZATIONS ||--o{ PROJECTS : owns
     PROJECTS ||--o{ QUEUES : owns
@@ -33,6 +34,8 @@ erDiagram
         uuid id PK
         text email UK
         text password_hash
+        bool email_verified
+        text display_name "nullable, shown in the UI instead of email once set"
         timestamptz created_at
     }
     REFRESH_TOKENS {
@@ -41,6 +44,16 @@ erDiagram
         text token_hash UK
         timestamptz expires_at
         timestamptz revoked_at "nullable"
+        timestamptz created_at
+    }
+    OTPS {
+        uuid id PK
+        uuid user_id FK
+        text purpose "verify_email or reset_password"
+        text code_hash
+        timestamptz expires_at
+        int attempts
+        timestamptz used_at "nullable"
         timestamptz created_at
     }
     ORGANIZATIONS {
@@ -263,6 +276,7 @@ erDiagram
 | `org_members` | `(user_id)` | "What orgs is this user in" - the membership check every scoped route runs. |
 | `projects` | `(org_id)` | Project listing per org. |
 | `refresh_tokens` | `(user_id)` | Token lookup/revocation on login. |
+| `otps` | `(user_id, purpose)` | `store.VerifyOTP`'s "most recent active code for this user+purpose" query. |
 
 ## Normalization / performance tradeoffs
 

@@ -2,9 +2,9 @@
 # self-signed cert automatically ("internal" cert, trusted only by Caddy's
 # own local CA). Point SITE_ADDRESS at a real domain in production and Caddy
 # switches to fetching a real cert from Let's Encrypt automatically instead
-# — no config change needed.
+# - no config change needed.
 {$SITE_ADDRESS:localhost} {
-	# job-service owns /jobs* (its own auth-gated routes — see
+	# job-service owns /jobs* (its own auth-gated routes - see
 	# docs/api-design.md); everything else falls through to api.
 	reverse_proxy /jobs* job-service:8081
 	reverse_proxy api:8080

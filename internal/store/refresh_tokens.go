@@ -54,3 +54,14 @@ func (s *Store) RevokeRefreshTokenByHash(ctx context.Context, tokenHash string) 
 	)
 	return err
 }
+
+// RevokeAllRefreshTokensForUser signs the user out everywhere - used after
+// a password reset, since a leaked-and-reset password shouldn't leave old
+// sessions valid.
+func (s *Store) RevokeAllRefreshTokensForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID,
+	)
+	return err
+}

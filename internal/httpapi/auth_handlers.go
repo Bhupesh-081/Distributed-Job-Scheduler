@@ -66,6 +66,9 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.sendOTP(r, user.ID, user.Email, store.OTPVerifyEmail,
+		"Verify your email", "Your Job Scheduler verification code is:")
+
 	s.respondWithNewSessionStatus(w, r, user.ID, http.StatusCreated)
 }
 

@@ -5,9 +5,17 @@ REST, JSON bodies, JWT bearer auth (except `/auth/*`). All list endpoints suppor
 ## Auth
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/auth/register` | Create user |
+| POST | `/auth/register` | Create user; also emails a 6-digit verification code (doesn't block the session it returns) |
 | POST | `/auth/login` | Returns JWT |
 | POST | `/auth/refresh` | Refresh token |
+| POST | `/auth/logout` | Revokes the presented refresh token |
+| POST | `/auth/verify-email` | `{email, code}`; marks `users.email_verified` |
+| POST | `/auth/resend-verification` | `{email}`; always 200 (doesn't reveal whether the address exists or is already verified) |
+| POST | `/auth/forgot-password` | `{email}`; always 200, same non-enumeration reasoning; emails a reset code if the account exists |
+| POST | `/auth/reset-password` | `{email, code, new_password}`; on success revokes every refresh token for that user |
+| GET | `/auth/me` | Current user's email, verification status, display name, created_at |
+| PATCH | `/auth/me` | `{display_name}` (60 chars max, empty string clears it) |
+| POST | `/auth/change-password` | `{current_password, new_password}` for a logged-in user (vs. the OTP-based reset above for a locked-out one); also revokes every refresh token, including the caller's own |
 
 ## Organizations / Projects
 | Method | Path | Notes |

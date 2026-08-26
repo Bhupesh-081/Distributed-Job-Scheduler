@@ -99,9 +99,14 @@ Full stack, HTTPS included (Postgres, Redis, Kafka, api, job-service,
 watcher-service, consumer-service, Caddy reverse proxy):
 
 ```bash
-cp .env.example .env          # then edit JWT_SECRET (openssl rand -base64 32)
+cp .env.example .env          # then edit JWT_SECRET (openssl rand -base64 32) and SMTP_*
 docker compose up -d --build
 ```
+
+`SMTP_HOST`/`SMTP_FROM`/`SMTP_USER`/`SMTP_PASSWORD` are required - `api`
+refuses to start without them, since email verification and password
+reset send real mail through them. See `.env.example` for Gmail setup
+(any other SMTP provider works too, just swap the host/port/credentials).
 
 Caddy listens on `:443` and terminates HTTPS: self-signed for local dev
 (`SITE_ADDRESS` defaults to `localhost`), a real Let's Encrypt cert

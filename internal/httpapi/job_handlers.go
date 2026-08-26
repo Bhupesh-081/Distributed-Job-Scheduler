@@ -116,6 +116,7 @@ type jobResponse struct {
 	RetriesCount   int             `json:"retries_count"`
 	RetriesMax     int             `json:"retries_max"`
 	CreatedAt      string          `json:"created_at"`
+	ModifiedTime   string          `json:"modified_time"`
 	QueueID        *string         `json:"queue_id,omitempty"`
 	RetryPolicyID  *string         `json:"retry_policy_id,omitempty"`
 	ScheduledJobID *string         `json:"scheduled_job_id,omitempty"`
@@ -131,6 +132,7 @@ func toJobResponse(j store.Job) jobResponse {
 		RetriesCount:  j.RetriesCount,
 		RetriesMax:    j.RetriesMax,
 		CreatedAt:     j.CreatedAt.Format(timeFormat),
+		ModifiedTime:  j.ModifiedTime.Format(timeFormat),
 	}
 	if j.ScheduledTime != nil {
 		s := j.ScheduledTime.Format(timeFormat)

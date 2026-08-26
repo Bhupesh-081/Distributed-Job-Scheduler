@@ -11,6 +11,7 @@ import (
 
 	"distributed-job-scheduler/internal/authsvc"
 	"distributed-job-scheduler/internal/heartbeat"
+	"distributed-job-scheduler/internal/mailer"
 	"distributed-job-scheduler/internal/store"
 )
 
@@ -19,11 +20,12 @@ type Server struct {
 	tokens          authsvc.TokenIssuer
 	refreshTokenTTL time.Duration
 	redis           *redis.Client
+	mailer          *mailer.Mailer
 	mux             *http.ServeMux
 }
 
-func NewServer(st *store.Store, tokens authsvc.TokenIssuer, refreshTokenTTL time.Duration, rdb *redis.Client) *Server {
-	s := &Server{store: st, tokens: tokens, refreshTokenTTL: refreshTokenTTL, redis: rdb, mux: http.NewServeMux()}
+func NewServer(st *store.Store, tokens authsvc.TokenIssuer, refreshTokenTTL time.Duration, rdb *redis.Client, mail *mailer.Mailer) *Server {
+	s := &Server{store: st, tokens: tokens, refreshTokenTTL: refreshTokenTTL, redis: rdb, mailer: mail, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -37,6 +39,13 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /auth/login", s.handleLogin)
 	s.mux.HandleFunc("POST /auth/refresh", s.handleRefresh)
 	s.mux.HandleFunc("POST /auth/logout", s.handleLogout)
+	s.mux.HandleFunc("POST /auth/verify-email", s.handleVerifyEmail)
+	s.mux.HandleFunc("POST /auth/resend-verification", s.handleResendVerification)
+	s.mux.HandleFunc("POST /auth/forgot-password", s.handleForgotPassword)
+	s.mux.HandleFunc("POST /auth/reset-password", s.handleResetPassword)
+	s.mux.HandleFunc("GET /auth/me", s.requireAuth(s.handleGetMe))
+	s.mux.HandleFunc("PATCH /auth/me", s.requireAuth(s.handleUpdateMe))
+	s.mux.HandleFunc("POST /auth/change-password", s.requireAuth(s.handleChangePassword))
 
 	s.mux.HandleFunc("GET /organizations", s.requireAuth(s.handleListOrganizations))
 	s.mux.HandleFunc("POST /organizations", s.requireAuth(s.handleCreateOrganization))
