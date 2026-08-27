@@ -13,7 +13,8 @@ import EmptyState from "./components/EmptyState";
 import Account from "./components/Account";
 import Breadcrumbs from "./components/Breadcrumbs";
 import Customization from "./components/Customization";
-import { IconBolt, IconChart, IconFolder, IconServer, IconSettings, IconUser, IconLayers } from "./components/Icons";
+import JobSchedulerPage from "./components/JobSchedulerPage";
+import { IconBolt, IconChart, IconFolder, IconServer, IconSettings, IconUser, IconLayers, IconClock } from "./components/Icons";
 
 // Org -> project -> (queues | retry policies) -> queue detail (jobs / scheduled jobs / DLQ).
 function OrgsBrowser() {
@@ -234,6 +235,7 @@ function OrgsBrowser() {
 const NAV = [
   { id: "overview", label: "Overview", icon: IconChart },
   { id: "organizations", label: "Organizations", icon: IconFolder },
+  { id: "job-scheduler", label: "Job Scheduler", icon: IconClock },
   { id: "customization", label: "Customization", icon: IconLayers },
   { id: "workers", label: "Workers", icon: IconServer },
   { id: "account", label: "Account", icon: IconUser },
@@ -284,6 +286,7 @@ function Dashboard({ onLogout }) {
       <main className="content">
         {tab === "overview" && <Overview onNavigate={setTab} />}
         {tab === "organizations" && <OrgsBrowser />}
+        {tab === "job-scheduler" && <JobSchedulerPage />}
         {tab === "customization" && <Customization />}
         {tab === "workers" && <Workers />}
         {tab === "account" && <Account onLogout={onLogout} />}
