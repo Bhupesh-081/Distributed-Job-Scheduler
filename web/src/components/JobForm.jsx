@@ -14,7 +14,7 @@ const emptyForm = {
   rawPayload: "{}",
 };
 
-export default function JobForm({ retryPolicies, onSubmit, busy }) {
+export default function JobForm({ retryPolicies, scripts, onSubmit, busy }) {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
 
@@ -92,6 +92,7 @@ export default function JobForm({ retryPolicies, onSubmit, busy }) {
         typeId={form.typeId}
         fieldValues={form.fieldValues}
         rawPayload={form.rawPayload}
+        scripts={scripts}
         onTypeChange={(typeId) => setForm((f) => ({ ...f, typeId, fieldValues: {} }))}
         onFieldChange={(key, value) => setForm((f) => ({ ...f, fieldValues: { ...f.fieldValues, [key]: value } }))}
         onRawChange={(rawPayload) => setForm((f) => ({ ...f, rawPayload }))}

@@ -460,6 +460,27 @@ input:focus, select:focus, textarea:focus {
   gap: 10px;
 }
 
+.job-schedule-row {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.job-schedule-row-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.job-schedule-row-header input {
+  flex: 1;
+}
+
+.job-schedule-actions {
+  display: flex;
+}
+
 .job-type-picker {
   display: flex;
   flex-wrap: wrap;
@@ -510,6 +531,13 @@ input:focus, select:focus, textarea:focus {
   resize: vertical;
   white-space: pre;
   tab-size: 4;
+}
+
+.script-library-picker {
+  grid-column: 1 / -1;
+  color: var(--accent);
+  font-weight: 600;
+  border-color: var(--accent);
 }
 
 /* --- tables --- */
@@ -824,6 +852,22 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* --- settings --- */
+.customization-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.customization-picker label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .settings-card {
   padding: 18px 20px;
   margin-bottom: 16px;
@@ -901,7 +945,7 @@ input:focus, select:focus, textarea:focus {
   max-width: 200px;
 }
 
-.account-password-form {
+.stacked-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -909,7 +953,7 @@ input:focus, select:focus, textarea:focus {
   max-width: 360px;
 }
 
-.account-password-form label {
+.stacked-form label {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -918,7 +962,7 @@ input:focus, select:focus, textarea:focus {
   color: var(--ink);
 }
 
-.account-password-form .btn-primary {
+.stacked-form .btn-primary {
   align-self: flex-start;
 }
 

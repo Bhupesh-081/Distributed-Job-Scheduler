@@ -33,7 +33,7 @@ function DurationCell({ job }) {
   );
 }
 
-export default function Jobs({ queueId, retryPolicies }) {
+export default function Jobs({ queueId, retryPolicies, scripts }) {
   const [jobs, setJobs] = useState([]);
   const [status, setStatus] = useState("");
   const [nameFilter, setNameFilter] = useState("");
@@ -132,7 +132,7 @@ export default function Jobs({ queueId, retryPolicies }) {
 
   return (
     <div>
-      <JobForm retryPolicies={retryPolicies} busy={busy} onSubmit={createFromForm} />
+      <JobForm retryPolicies={retryPolicies} scripts={scripts} busy={busy} onSubmit={createFromForm} />
 
       {error && <div className="error">{error}</div>}
 

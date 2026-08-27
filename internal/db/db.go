@@ -45,6 +45,9 @@ var otpsSQL string
 //go:embed migrations/0012_display_name.sql
 var displayNameSQL string
 
+//go:embed migrations/0013_scripts.sql
+var scriptsSQL string
+
 func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, url)
 	if err != nil {
@@ -64,7 +67,7 @@ func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
 // startup. Fine while each file only adds new tables; move to golang-migrate
 // (up/down pairs) the moment an existing table needs to change shape.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	for _, stmt := range []string{initSQL, jobsSQL, jobsTypeStatusFixSQL, jobsDispatchSQL, queuesSQL, retryPoliciesSQL, workersSQL, jobLogsSQL, dlqSQL, scheduledJobsSQL, otpsSQL, displayNameSQL} {
+	for _, stmt := range []string{initSQL, jobsSQL, jobsTypeStatusFixSQL, jobsDispatchSQL, queuesSQL, retryPoliciesSQL, workersSQL, jobLogsSQL, dlqSQL, scheduledJobsSQL, otpsSQL, displayNameSQL, scriptsSQL} {
 		if _, err := pool.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("migrate: %w", err)
 		}

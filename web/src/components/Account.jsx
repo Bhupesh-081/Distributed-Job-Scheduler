@@ -158,7 +158,7 @@ export default function Account({ onLogout }) {
 
       <div className="card settings-card">
         <h3>Change password</h3>
-        <form className="account-password-form" onSubmit={submitPasswordChange}>
+        <form className="stacked-form" onSubmit={submitPasswordChange}>
           <label>
             Current password
             <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} minLength={8} required />

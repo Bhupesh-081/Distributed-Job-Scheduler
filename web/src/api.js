@@ -121,6 +121,12 @@ export const createRetryPolicy = (projectId, body) => api(`/projects/${projectId
 export const updateRetryPolicy = (id, body) => api(`/retry-policies/${id}`, { method: "PATCH", body });
 export const deleteRetryPolicy = (id) => api(`/retry-policies/${id}`, { method: "DELETE" });
 
+// --- script library ---
+export const listScripts = (projectId) => api(`/projects/${projectId}/scripts`);
+export const createScript = (projectId, body) => api(`/projects/${projectId}/scripts`, { body });
+export const updateScript = (id, body) => api(`/scripts/${id}`, { method: "PATCH", body });
+export const deleteScript = (id) => api(`/scripts/${id}`, { method: "DELETE" });
+
 // Live job updates for one queue. Browsers' WebSocket API can't set an
 // Authorization header, so the token travels as a query param - the
 // backend route (GET /jobs/stream) accepts that specifically for this.
@@ -146,6 +152,7 @@ export const listJobs = (queueId, { status, page, page_size } = {}) =>
   jobApi(`/jobs${qs({ queue_id: queueId, status, page, page_size })}`);
 export const getJob = (id) => jobApi(`/jobs/${id}`);
 export const createJob = (body) => jobApi("/jobs", { body });
+export const createJobsBatch = (jobs) => jobApi("/jobs/batch", { body: { jobs } });
 export const getJobLogs = (id) => jobApi(`/jobs/${id}/logs`);
 export const cancelJob = (id) => jobApi(`/jobs/${id}/cancel`, { method: "POST", body: {} });
 

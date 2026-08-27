@@ -1,6 +1,6 @@
 # Database Schema (PostgreSQL)
 
-This is the schema as actually migrated (`internal/db/migrations/0001`–`0010`,
+This is the schema as actually migrated (`internal/db/migrations/0001`–`0013`,
 applied by `internal/db.Migrate` on every service startup), not an
 aspirational design - every column/constraint below is grep-checked against
 `internal/store/*.go`.
@@ -16,6 +16,7 @@ erDiagram
     ORGANIZATIONS ||--o{ PROJECTS : owns
     PROJECTS ||--o{ QUEUES : owns
     PROJECTS ||--o{ RETRY_POLICIES : owns
+    PROJECTS ||--o{ SCRIPTS : owns
     QUEUES ||--o{ JOBS : contains
     QUEUES }o--o| RETRY_POLICIES : "default (nullable)"
     JOBS }o--o| RETRY_POLICIES : "override (nullable)"
@@ -92,6 +93,15 @@ erDiagram
         text strategy "fixed, linear, exponential"
         int base_delay_seconds
         int max_delay_seconds "nullable"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    SCRIPTS {
+        uuid id PK
+        uuid project_id FK
+        text name
+        text script_type "python or bash"
+        text content
         timestamptz created_at
         timestamptz updated_at
     }
@@ -267,6 +277,7 @@ erDiagram
 | `job_logs` | partial `(job_run_id) WHERE job_run_id IS NOT NULL` | Filtering logs to one attempt. |
 | `queues` | UNIQUE `(project_id, name)` | Queue names only need to be unique within a project. |
 | `retry_policies` | UNIQUE `(project_id, name)` | Same reasoning as queues. |
+| `scripts` | `(project_id)`, UNIQUE `(project_id, name)` | Same reasoning as queues/retry_policies. |
 | `workers` | `(status)` | `GET /workers?status=active` and the stale-worker reaper. |
 | `worker_heartbeats` | `(worker_id, heartbeat_at DESC)` | A worker's recent-heartbeats detail view, newest first. |
 | `dead_letter_queue` | partial `(queue_id) WHERE queue_id IS NOT NULL` | `GET /queues/{id}/dlq`. |

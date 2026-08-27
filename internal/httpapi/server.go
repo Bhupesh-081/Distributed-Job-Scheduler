@@ -83,6 +83,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("PATCH /retry-policies/{retryPolicyId}", s.requireAuth(s.handleUpdateRetryPolicy))
 	s.mux.HandleFunc("DELETE /retry-policies/{retryPolicyId}", s.requireAuth(s.handleDeleteRetryPolicy))
 
+	s.mux.HandleFunc("GET /projects/{projectId}/scripts", s.requireAuth(s.handleListScripts))
+	s.mux.HandleFunc("POST /projects/{projectId}/scripts", s.requireAuth(s.handleCreateScript))
+	s.mux.HandleFunc("PATCH /scripts/{scriptId}", s.requireAuth(s.handleUpdateScript))
+	s.mux.HandleFunc("DELETE /scripts/{scriptId}", s.requireAuth(s.handleDeleteScript))
+
 	s.mux.HandleFunc("GET /workers", s.requireAuth(s.handleListWorkers))
 	s.mux.HandleFunc("GET /workers/{workerId}", s.requireAuth(s.handleGetWorker))
 

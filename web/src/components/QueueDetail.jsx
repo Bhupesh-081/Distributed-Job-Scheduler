@@ -7,7 +7,7 @@ import Dlq from "./Dlq";
 
 const TABS = ["Jobs", "Scheduled jobs", "Dead letter queue"];
 
-export default function QueueDetail({ queue, retryPolicies, onChanged }) {
+export default function QueueDetail({ queue, retryPolicies, scripts, onChanged }) {
   const [tab, setTab] = useState("Jobs");
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
@@ -68,8 +68,8 @@ export default function QueueDetail({ queue, retryPolicies, onChanged }) {
         ))}
       </div>
 
-      {tab === "Jobs" && <Jobs queueId={queue.id} retryPolicies={retryPolicies} />}
-      {tab === "Scheduled jobs" && <ScheduledJobs queueId={queue.id} retryPolicies={retryPolicies} />}
+      {tab === "Jobs" && <Jobs queueId={queue.id} retryPolicies={retryPolicies} scripts={scripts} />}
+      {tab === "Scheduled jobs" && <ScheduledJobs queueId={queue.id} retryPolicies={retryPolicies} scripts={scripts} />}
       {tab === "Dead letter queue" && <Dlq queueId={queue.id} />}
     </div>
   );

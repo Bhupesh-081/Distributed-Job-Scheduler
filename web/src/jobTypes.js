@@ -10,6 +10,9 @@ export const BUILTIN_TYPES = [
     id: "python",
     label: "Python script",
     iconKey: "code",
+    // Matches store.Script's script_type - lets PayloadPicker offer a
+    // "Load from library" dropdown for this type's code field.
+    scriptType: "python",
     fields: [
       {
         key: "code",
@@ -24,6 +27,26 @@ export const BUILTIN_TYPES = [
     // same as every other job type - `python3 -c "<code>"` needs nothing
     // new from the executor (internal/executor/executor.go).
     build: (v) => ({ cmd: "python3", args: ["-c", v.code, ...splitArgs(v.args)] }),
+  },
+  {
+    id: "bash",
+    label: "Bash script",
+    iconKey: "terminal",
+    scriptType: "bash",
+    fields: [
+      {
+        key: "code",
+        label: "Bash code",
+        type: "code",
+        placeholder: 'echo "hello from the scheduler"',
+        required: true,
+      },
+      { key: "args", label: "Positional arguments ($1, $2, ...)", placeholder: "" },
+    ],
+    // "bash" as argv[0] after -c becomes $0 inside the script, so
+    // splitArgs(v.args) lands as $1, $2, ... - same no-shell-interpolation
+    // guarantee as every other type.
+    build: (v) => ({ cmd: "bash", args: ["-c", v.code, "bash", ...splitArgs(v.args)] }),
   },
   {
     id: "shell",

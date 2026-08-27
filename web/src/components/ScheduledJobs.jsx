@@ -14,7 +14,7 @@ const emptyForm = {
   rawPayload: "{}",
 };
 
-export default function ScheduledJobs({ queueId, retryPolicies }) {
+export default function ScheduledJobs({ queueId, retryPolicies, scripts }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
@@ -108,6 +108,7 @@ export default function ScheduledJobs({ queueId, retryPolicies }) {
           typeId={form.typeId}
           fieldValues={form.fieldValues}
           rawPayload={form.rawPayload}
+          scripts={scripts}
           onTypeChange={(typeId) => setForm((f) => ({ ...f, typeId, fieldValues: {} }))}
           onFieldChange={(key, value) => setForm((f) => ({ ...f, fieldValues: { ...f.fieldValues, [key]: value } }))}
           onRawChange={(rawPayload) => setForm((f) => ({ ...f, rawPayload }))}

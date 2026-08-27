@@ -41,6 +41,12 @@ REST, JSON bodies, JWT bearer auth (except `/auth/*`). All list endpoints suppor
 | GET/POST | `/projects/:projectId/retry-policies` | `strategy`: fixed/linear/exponential, `base_delay_seconds`, optional `max_delay_seconds` cap |
 | GET/PATCH/DELETE | `/retry-policies/:id` | A job's `retry_policy_id` overrides its queue's `default_retry_policy_id`; neither set falls back to a fixed 5s delay |
 
+## Script library
+| Method | Path | Notes |
+|---|---|---|
+| GET/POST | `/projects/:projectId/scripts` | `script_type`: python/bash, `content` (the script body) |
+| PATCH/DELETE | `/scripts/:id` | Not referenced by jobs at the database level - the dashboard's "load from library" copies `content` into the job payload at creation time, same as picking any other job type |
+
 ## Jobs
 Served by job-service (separate binary from `cmd/api`, sharing its JWT secret - a token from `/auth/login` works on both). Every route requires `Authorization: Bearer` and is scoped by the target job's `queue_id` → the caller's org membership; a job/queue outside the caller's orgs 403s (or 404s for a legacy pre-auth job with no `queue_id` at all).
 | Method | Path | Notes |

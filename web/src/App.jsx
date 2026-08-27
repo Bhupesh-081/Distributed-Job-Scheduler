@@ -4,6 +4,7 @@ import { getSettings, applyTheme } from "./settings";
 import Queues from "./components/Queues";
 import QueueDetail from "./components/QueueDetail";
 import RetryPolicies from "./components/RetryPolicies";
+import Scripts from "./components/Scripts";
 import Workers from "./components/Workers";
 import Overview from "./components/Overview";
 import Settings from "./components/Settings";
@@ -11,7 +12,8 @@ import AuthScreen from "./components/AuthScreen";
 import EmptyState from "./components/EmptyState";
 import Account from "./components/Account";
 import Breadcrumbs from "./components/Breadcrumbs";
-import { IconBolt, IconChart, IconFolder, IconServer, IconSettings, IconUser } from "./components/Icons";
+import Customization from "./components/Customization";
+import { IconBolt, IconChart, IconFolder, IconServer, IconSettings, IconUser, IconLayers } from "./components/Icons";
 
 // Org -> project -> (queues | retry policies) -> queue detail (jobs / scheduled jobs / DLQ).
 function OrgsBrowser() {
@@ -26,6 +28,7 @@ function OrgsBrowser() {
 
   const [queues, setQueues] = useState([]);
   const [retryPolicies, setRetryPolicies] = useState([]);
+  const [scripts, setScripts] = useState([]);
   const [openQueue, setOpenQueue] = useState(null);
 
   const [error, setError] = useState("");
@@ -87,9 +90,10 @@ function OrgsBrowser() {
     setOpenQueue(null);
     setError("");
     try {
-      const [qs, rps] = await Promise.all([api.listQueues(p.id), api.listRetryPolicies(p.id)]);
+      const [qs, rps, scr] = await Promise.all([api.listQueues(p.id), api.listRetryPolicies(p.id), api.listScripts(p.id)]);
       setQueues(qs);
       setRetryPolicies(rps);
+      setScripts(scr);
     } catch (err) {
       setError(err.message);
     }
@@ -108,6 +112,15 @@ function OrgsBrowser() {
     setError("");
     try {
       setRetryPolicies(await api.listRetryPolicies(project.id));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function refreshScripts() {
+    setError("");
+    try {
+      setScripts(await api.listScripts(project.id));
     } catch (err) {
       setError(err.message);
     }
@@ -180,6 +193,7 @@ function OrgsBrowser() {
         <QueueDetail
           queue={openQueue}
           retryPolicies={retryPolicies}
+          scripts={scripts}
           onChanged={(updated) => {
             setOpenQueue(updated);
             refreshQueues();
@@ -192,7 +206,7 @@ function OrgsBrowser() {
           <div className="content-header"><h2>{project.name}</h2></div>
           {error && <div className="error">{error}</div>}
           <div className="tabs">
-            {["Queues", "Retry policies"].map((t) => (
+            {["Queues", "Retry policies", "Scripts"].map((t) => (
               <button key={t} className={`tab ${projectTab === t ? "tab-active" : ""}`} onClick={() => setProjectTab(t)}>{t}</button>
             ))}
           </div>
@@ -208,6 +222,9 @@ function OrgsBrowser() {
           {projectTab === "Retry policies" && (
             <RetryPolicies projectId={project.id} policies={retryPolicies} refresh={refreshRetryPolicies} />
           )}
+          {projectTab === "Scripts" && (
+            <Scripts projectId={project.id} scripts={scripts} refresh={refreshScripts} />
+          )}
         </>
       )}
     </div>
@@ -217,6 +234,7 @@ function OrgsBrowser() {
 const NAV = [
   { id: "overview", label: "Overview", icon: IconChart },
   { id: "organizations", label: "Organizations", icon: IconFolder },
+  { id: "customization", label: "Customization", icon: IconLayers },
   { id: "workers", label: "Workers", icon: IconServer },
   { id: "account", label: "Account", icon: IconUser },
   { id: "settings", label: "Settings", icon: IconSettings },
@@ -266,6 +284,7 @@ function Dashboard({ onLogout }) {
       <main className="content">
         {tab === "overview" && <Overview onNavigate={setTab} />}
         {tab === "organizations" && <OrgsBrowser />}
+        {tab === "customization" && <Customization />}
         {tab === "workers" && <Workers />}
         {tab === "account" && <Account onLogout={onLogout} />}
         {tab === "settings" && <Settings />}
