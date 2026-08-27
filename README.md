@@ -14,6 +14,7 @@
 | Architecture diagram | [Architecture](#architecture) below, full write-up in [`docs/architecture.md`](docs/architecture.md) |
 | ER diagram | [ER diagram](#er-diagram) below, full schema notes in [`docs/database-schema.md`](docs/database-schema.md) |
 | API documentation | [API Documentation](#api-documentation) below, full reference in [`docs/api-design.md`](docs/api-design.md) |
+| Web dashboard | [Web dashboard](#web-dashboard) below, source in `web/` |
 | Design decisions | [`docs/design-decisions.md`](docs/design-decisions.md) |
 | Automated tests | [Automated Tests](#automated-tests) below, run with `go test ./...` |
 
@@ -23,9 +24,10 @@
 
 Auth + project management, plus the full job-scheduling core: queues,
 retry policies, jobs, workers, execution logs, a dead letter queue, and
-recurring (cron) jobs. See `docs/` for the full architecture and
-`docs/design-decisions.md`'s "MVP bootstrap ledger" for what's
-implemented and how it was verified.
+recurring (cron) jobs. A React + Vite dashboard covers the frontend
+requirement; see [Web dashboard](#web-dashboard) below. See `docs/` for
+the full architecture and `docs/design-decisions.md`'s "MVP bootstrap
+ledger" for what's implemented and how it was verified.
 
 ## ER diagram
 
@@ -73,6 +75,45 @@ is in [`docs/api-design.md`](docs/api-design.md) - grouped summary:
 | Workers | `/workers`, `/workers/:id` | Status + last 20 heartbeats |
 | Dead Letter Queue | `/queues/:id/dlq`, `/dlq/:id`, `/dlq/:id/replay` | Append-only audit log; replay re-queues the original job |
 | System | `/system/health` | Liveness + watcher-service heartbeat staleness |
+
+## Web dashboard
+
+React 18 + Vite, source under `web/src`. It covers the frontend
+requirements from the assignment brief: queue health, worker status, a
+job explorer, per-attempt execution logs, queue configuration, and basic
+throughput metrics, updated by polling on an interval (`pollMs` in
+`web/src/settings.js`, no WebSocket).
+
+| Area | Component(s) |
+|---|---|
+| Auth | `AuthScreen.jsx` (login/register against `/auth/*`), `Account.jsx` |
+| Overview / metrics | `Overview.jsx`, `Chart.jsx` |
+| Queues | `Queues.jsx`, `QueueDetail.jsx`, `QueueConfig.jsx`, `QueuePickerBar.jsx`, `RetryPolicies.jsx` |
+| Jobs | `Jobs.jsx`, `JobForm.jsx`, `JobSchedulerPage.jsx`, `JobScheduling.jsx`, `RunHistoryGrid.jsx`, `PayloadPicker.jsx` |
+| Recurring jobs | `ScheduledJobs.jsx` |
+| Workers | `Workers.jsx` |
+| Dead letter queue | `Dlq.jsx` |
+| Settings | `Settings.jsx`, `Customization.jsx` |
+
+The access token is kept in memory and the refresh token in
+`sessionStorage`, scoped per browser tab (`web/src/api.js`), so logging
+into a different account in one tab does not affect a session already
+open in another.
+
+The dashboard is a separate process from the rest of the stack. It is
+not yet added to `docker-compose.yml` or routed through Caddy, and
+reaches the API directly over plain HTTP:
+
+```bash
+cd web
+npm install
+npm run dev            # http://localhost:5173, proxies to http://localhost:8080 and :8081
+```
+
+`VITE_API_URL` and `VITE_JOB_API_URL` override the default `api` and
+`job-service` addresses (`web/src/api.js`) if they run on different
+hosts or ports. Run `npm run build` to produce the static output in
+`web/dist` for a production deployment.
 
 ## Automated tests
 
