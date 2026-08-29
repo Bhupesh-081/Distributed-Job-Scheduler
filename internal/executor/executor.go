@@ -25,8 +25,6 @@ type ShellPayload struct {
 	TimeoutSeconds int      `json:"timeout_seconds"`
 }
 
-// Run parses payload as a ShellPayload and executes it, returning combined
-// stdout+stderr. A non-zero exit code or a timeout is returned as an error.
 func Run(ctx context.Context, payload json.RawMessage) (string, error) {
 	var p ShellPayload
 	if err := json.Unmarshal(payload, &p); err != nil {

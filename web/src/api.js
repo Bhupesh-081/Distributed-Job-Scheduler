@@ -87,26 +87,22 @@ export function isLoggedIn() {
   return !!accessToken || !!sessionStorage.getItem("refresh_token");
 }
 
-// --- email verification / forgot-password, both via a 6-digit OTP ---
 export const verifyEmailOtp = (email, code) => raw(API_BASE, "/auth/verify-email", { body: { email, code } });
 export const resendVerificationOtp = (email) => raw(API_BASE, "/auth/resend-verification", { body: { email } });
 export const forgotPassword = (email) => raw(API_BASE, "/auth/forgot-password", { body: { email } });
 export const resetPasswordOtp = (email, code, newPassword) =>
   raw(API_BASE, "/auth/reset-password", { body: { email, code, new_password: newPassword } });
 
-// --- account ---
 export const getMe = () => api("/auth/me");
 export const updateDisplayName = (displayName) => api("/auth/me", { method: "PATCH", body: { display_name: displayName } });
 export const changePassword = (currentPassword, newPassword) =>
   api("/auth/change-password", { body: { current_password: currentPassword, new_password: newPassword } });
 
-// --- organizations / projects ---
 export const listOrganizations = () => api("/organizations");
 export const createOrganization = (name) => api("/organizations", { body: { name } });
 export const listProjects = (orgId) => api(`/organizations/${orgId}/projects`);
 export const createProject = (orgId, name) => api(`/organizations/${orgId}/projects`, { body: { name } });
 
-// --- queues ---
 export const listQueues = (projectId) => api(`/projects/${projectId}/queues`);
 export const createQueue = (projectId, body) => api(`/projects/${projectId}/queues`, { body });
 export const updateQueue = (queueId, body) => api(`/queues/${queueId}`, { method: "PATCH", body });
@@ -115,13 +111,11 @@ export const pauseQueue = (queueId) => api(`/queues/${queueId}/pause`, { method:
 export const resumeQueue = (queueId) => api(`/queues/${queueId}/resume`, { method: "POST", body: {} });
 export const getQueueStats = (queueId) => api(`/queues/${queueId}/stats`);
 
-// --- retry policies ---
 export const listRetryPolicies = (projectId) => api(`/projects/${projectId}/retry-policies`);
 export const createRetryPolicy = (projectId, body) => api(`/projects/${projectId}/retry-policies`, { body });
 export const updateRetryPolicy = (id, body) => api(`/retry-policies/${id}`, { method: "PATCH", body });
 export const deleteRetryPolicy = (id) => api(`/retry-policies/${id}`, { method: "DELETE" });
 
-// --- script library ---
 export const listScripts = (projectId) => api(`/projects/${projectId}/scripts`);
 export const createScript = (projectId, body) => api(`/projects/${projectId}/scripts`, { body });
 export const updateScript = (id, body) => api(`/scripts/${id}`, { method: "PATCH", body });
@@ -147,7 +141,6 @@ export function openJobsStream(queueId, { onJob, onOpen, onClose } = {}) {
   return ws;
 }
 
-// --- jobs (job-service, separate port) ---
 export const listJobs = (queueId, { status, page, page_size } = {}) =>
   jobApi(`/jobs${qs({ queue_id: queueId, status, page, page_size })}`);
 export const getJob = (id) => jobApi(`/jobs/${id}`);
@@ -156,16 +149,13 @@ export const createJobsBatch = (jobs) => jobApi("/jobs/batch", { body: { jobs } 
 export const getJobLogs = (id) => jobApi(`/jobs/${id}/logs`);
 export const cancelJob = (id) => jobApi(`/jobs/${id}/cancel`, { method: "POST", body: {} });
 
-// --- workers ---
 export const listWorkers = (status) => api(`/workers${qs({ status })}`);
 export const getWorker = (id) => api(`/workers/${id}`);
 
-// --- dead letter queue ---
 export const listDLQ = (queueId) => api(`/queues/${queueId}/dlq`);
 export const replayDLQEntry = (id) => api(`/dlq/${id}/replay`, { method: "POST", body: {} });
 export const deleteDLQEntry = (id) => api(`/dlq/${id}`, { method: "DELETE" });
 
-// --- scheduled (cron) jobs ---
 export const listScheduledJobs = (queueId) => api(`/queues/${queueId}/scheduled-jobs`);
 export const createScheduledJob = (queueId, body) => api(`/queues/${queueId}/scheduled-jobs`, { body });
 export const updateScheduledJob = (id, body) => api(`/scheduled-jobs/${id}`, { method: "PATCH", body });
@@ -173,5 +163,4 @@ export const deleteScheduledJob = (id) => api(`/scheduled-jobs/${id}`, { method:
 export const pauseScheduledJob = (id) => api(`/scheduled-jobs/${id}/pause`, { method: "POST", body: {} });
 export const resumeScheduledJob = (id) => api(`/scheduled-jobs/${id}/resume`, { method: "POST", body: {} });
 
-// --- system ---
 export const getMetrics = () => api("/system/metrics");

@@ -1,4 +1,3 @@
-// Package db owns the Postgres connection pool and startup schema migration.
 package db
 
 import (

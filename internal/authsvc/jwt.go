@@ -29,7 +29,6 @@ func (i TokenIssuer) GenerateAccessToken(userID uuid.UUID) (string, error) {
 	return token.SignedString(i.secret)
 }
 
-// ParseAccessToken validates signature and expiry and returns the subject user ID.
 func (i TokenIssuer) ParseAccessToken(raw string) (uuid.UUID, error) {
 	claims := &jwt.RegisteredClaims{}
 	token, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {

@@ -1,19 +1,24 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: scheduler
       POSTGRES_PASSWORD: scheduler
       POSTGRES_DB: scheduler
     ports:
-      - "5432:5432"
+      # Bound to localhost only: nothing outside this host needs to reach
+      # Postgres directly, and the default creds would otherwise be
+      # internet-reachable if the security group is ever opened wider.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   # Single-node Kafka in KRaft mode (no Zookeeper - Zookeeper is deprecated
   # upstream as of Kafka 3.x/4.0, and one fewer container to run for a local
@@ -23,8 +28,9 @@ services:
   # connecting via kafka:19092.
   kafka:
     image: apache/kafka:3.8.0
+    restart: unless-stopped
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -48,6 +54,7 @@ services:
       context: .
       args:
         SERVICE: api
+    restart: unless-stopped
     environment:
       PORT: 8080
       DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
@@ -68,6 +75,7 @@ services:
       context: .
       args:
         SERVICE: job-service
+    restart: unless-stopped
     environment:
       PORT: 8081
       DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
@@ -83,6 +91,7 @@ services:
       context: .
       args:
         SERVICE: watcher-service
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
       # kafka:19092 is the PLAINTEXT listener for in-network services, not
@@ -99,6 +108,7 @@ services:
       context: .
       args:
         SERVICE: consumer-service
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgres://scheduler:scheduler@postgres:5432/scheduler?sslmode=disable
       REDIS_ADDR: redis:6379
@@ -111,6 +121,7 @@ services:
 
   caddy:
     image: docker.io/caddy:2-alpine
+    restart: unless-stopped
     ports:
       - "443:443"
       - "80:80" # HTTP->HTTPS redirect + ACME challenge, handled by Caddy automatically

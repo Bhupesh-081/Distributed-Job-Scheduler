@@ -1,5 +1,3 @@
-// Package httpapi wires the REST API: routing, auth middleware, and handlers
-// for auth, organizations, and projects.
 package httpapi
 
 import (

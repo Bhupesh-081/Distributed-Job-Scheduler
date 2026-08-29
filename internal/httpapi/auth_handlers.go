@@ -151,8 +151,6 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// respondWithNewSession issues a fresh access/refresh token pair for userID
-// and writes it as the response body.
 func (s *Server) respondWithNewSession(w http.ResponseWriter, r *http.Request, userID uuid.UUID) {
 	s.respondWithNewSessionStatus(w, r, userID, http.StatusOK)
 }

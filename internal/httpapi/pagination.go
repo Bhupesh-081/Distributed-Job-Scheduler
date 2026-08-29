@@ -8,7 +8,6 @@ import (
 const defaultPageSize = 20
 const maxPageSize = 100
 
-// pageParams reads ?page= and ?page_size= and returns SQL LIMIT/OFFSET values.
 func pageParams(r *http.Request) (limit, offset int) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page < 1 {

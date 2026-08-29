@@ -20,7 +20,6 @@ const (
 	TopicDead  = "dead"
 )
 
-// Brokers reads KAFKA_BROKERS (comma-separated), defaulting to localhost:9092.
 func Brokers() []string {
 	v := os.Getenv("KAFKA_BROKERS")
 	if v == "" {
@@ -53,7 +52,6 @@ func (p *Producer) PublishJob(ctx context.Context, topic string, jobID uuid.UUID
 
 func (p *Producer) Close() error { return p.w.Close() }
 
-// Consumer reads job IDs off a topic within a consumer group.
 type Consumer struct {
 	r *kafkago.Reader
 }
@@ -72,8 +70,7 @@ func NewConsumer(brokers []string, topic, groupID string) *Consumer {
 	})}
 }
 
-// ReadJob blocks for the next message and parses its value as a job ID.
-// The raw message is returned too so the caller can commit it.
+// ReadJob returns the raw message too so the caller can commit it.
 func (c *Consumer) ReadJob(ctx context.Context) (uuid.UUID, kafkago.Message, error) {
 	msg, err := c.r.FetchMessage(ctx)
 	if err != nil {

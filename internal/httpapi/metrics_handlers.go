@@ -27,7 +27,6 @@ type systemMetricsResponse struct {
 	CPUCores          int     `json:"cpu_cores"`
 }
 
-// loadAvg reads the host's 1/5/15-minute load average from /proc/loadavg.
 // ponytail: Linux-only (fine - every service here runs in a Linux
 // container); returns zeros on any other OS or read failure instead of
 // erroring, since this is a dashboard nice-to-have, not core data.

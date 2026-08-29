@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// OTP purposes.
 const (
 	OTPVerifyEmail   = "verify_email"
 	OTPResetPassword = "reset_password"

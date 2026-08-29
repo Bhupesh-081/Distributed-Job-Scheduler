@@ -25,7 +25,6 @@ const StaleAfter = 30 * time.Second
 // key is refreshed long before this expiry would ever matter in practice.
 const ttl = 5 * time.Minute
 
-// ReportAlive records "now" as the watcher's last poll time.
 func ReportAlive(ctx context.Context, rdb *redis.Client) error {
 	return rdb.Set(ctx, key, time.Now().Format(time.RFC3339), ttl).Err()
 }
@@ -35,8 +34,6 @@ type Status struct {
 	LastPollAt time.Time // zero if never reported (or the key expired)
 }
 
-// Get reports whether the watcher's last reported poll is within
-// StaleAfter of now.
 func Get(ctx context.Context, rdb *redis.Client) (Status, error) {
 	val, err := rdb.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {

@@ -24,7 +24,6 @@ func userIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	return id, ok
 }
 
-// requireAuth validates the Bearer JWT and injects the caller's user ID into the request context.
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return requireAuthWith(s.tokens, next)
 }

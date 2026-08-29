@@ -68,7 +68,7 @@ func (s *Server) requireScriptMember(w http.ResponseWriter, r *http.Request, id 
 }
 
 type scriptRequest struct {
-	Name       string `json:"name"`
+	Name       string `json:"name"`	
 	ScriptType string `json:"script_type"`
 	Content    string `json:"content"`
 }

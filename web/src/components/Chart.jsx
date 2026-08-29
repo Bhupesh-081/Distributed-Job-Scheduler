@@ -1,4 +1,3 @@
-// Minimal dependency-free SVG sparkline/area chart.
 export default function LineChart({ data, height = 72, color = "var(--accent)", fillOpacity = 0.18 }) {
   const w = 320;
   const h = height;

@@ -14,7 +14,6 @@ import (
 
 var parser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 
-// Validate returns an error if expr isn't a valid standard cron expression.
 func Validate(expr string) error {
 	_, err := parser.Parse(expr)
 	return err

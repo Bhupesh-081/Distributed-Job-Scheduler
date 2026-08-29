@@ -15,7 +15,6 @@ import (
 
 const otpTTL = 10 * time.Minute
 
-// sendOTP issues a fresh code for purpose, stores its hash, and emails it.
 // Errors are logged, not returned: a dead mail relay shouldn't fail
 // registration/login, and forgot-password must respond identically whether
 // or not the send actually worked (see handleForgotPassword).
